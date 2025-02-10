@@ -5,7 +5,6 @@ import { FiNavigation } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Libraries } from "@react-google-maps/api";
-import { Alert, AlertDescription } from "./alert";
 
 interface LocationPickerProps {
   defaultLocation?: {
@@ -31,7 +30,6 @@ export function LocationPicker({
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const { toast } = useToast();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const libraries: Libraries = ["places"];
@@ -43,9 +41,9 @@ export function LocationPicker({
     }
 
     try {
-      // Use default location from props or fallback to a central location
+      // Default to a central location if no default is provided
       const initialLocation = defaultLocation || {
-        latitude: 20.5937,  // Center of India as fallback
+        latitude: 20.5937,  // Center of India
         longitude: 78.9629
       };
 
@@ -54,7 +52,7 @@ export function LocationPicker({
           lat: initialLocation.latitude,
           lng: initialLocation.longitude,
         },
-        zoom: defaultLocation ? 15 : 5,
+        zoom: 5,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
@@ -152,7 +150,6 @@ export function LocationPicker({
           }
         } catch (error) {
           console.error('Initial geocoding error:', error);
-          setLocationError("Unable to get address for this location");
         }
       }
     } catch (error) {
@@ -168,8 +165,6 @@ export function LocationPicker({
 
   const handleGetCurrentLocation = async () => {
     setIsLoadingLocation(true);
-    setLocationError(null);
-
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -200,33 +195,20 @@ export function LocationPicker({
           }
         } catch (error) {
           console.error('Geocoding error:', error);
-          setLocationError("Failed to get address for current location");
+          toast({
+            title: "Error",
+            description: "Failed to get address for current location",
+            variant: "destructive",
+          });
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Location error:', error);
-      let errorMessage = "Couldn't get current location. ";
-
-      if (error.code === 1) {
-        errorMessage += "Please enable location services and refresh the page.";
-      } else if (error.code === 2) {
-        errorMessage += "Position unavailable. Please try again.";
-      } else if (error.code === 3) {
-        errorMessage += "Request timed out. Please try again.";
-      } else {
-        errorMessage += "Please ensure location services are enabled and try again.";
-      }
-
-      setLocationError(errorMessage);
-
-      // If we have a default location, we'll keep using that
-      if (!defaultLocation) {
-        toast({
-          title: "Location Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Location Error",
+        description: "Couldn't get current location. Please ensure location services are enabled and try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingLocation(false);
     }
@@ -236,12 +218,6 @@ export function LocationPicker({
     if (!mapRef.current) return;
 
     const loadGoogleMaps = () => {
-      if (!apiKey) {
-        setLocationError("Google Maps API key not configured");
-        setIsLoading(false);
-        return;
-      }
-
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
@@ -253,7 +229,11 @@ export function LocationPicker({
 
       script.onerror = () => {
         setIsLoading(false);
-        setLocationError("Failed to load Google Maps. Please check your internet connection and try again.");
+        toast({
+          title: "Error",
+          description: "Failed to load Google Maps. Please check your internet connection and try again.",
+          variant: "destructive",
+        });
       };
 
       document.head.appendChild(script);
@@ -289,11 +269,6 @@ export function LocationPicker({
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        {locationError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{locationError}</AlertDescription>
-          </Alert>
-        )}
         <div className="text-sm text-muted-foreground mb-2">
           Click on the map to select a location or use the button below
         </div>

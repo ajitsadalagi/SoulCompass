@@ -1,4 +1,4 @@
-import { Apple, Carrot, Milk, Package, Phone, Clock, Search as SearchIcon, X, User, MapPin, Loader2 } from "lucide-react";
+import { Apple, Carrot, Milk, Package, Phone, Clock, Search as SearchIcon, X, User, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -320,76 +320,70 @@ const ProductSearch = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  // Update location handling
   useEffect(() => {
     const getLocation = async () => {
-      try {
-        // Always try getting current location first
-        if ("geolocation" in navigator) {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(
-              resolve,
-              reject,
-              {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-              }
-            );
-          });
-
-          const location = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-
-          console.log("Got current location:", location);
-          setCurrentLocation(location);
-          setSearchCircle({
-            center: location,
-            radius: 3218.69, // 2 miles in meters
-          });
-          setIsLocationSearchActive(true);
-          setLocationError(null);
-          return; // Exit early if we successfully got current location
-        }
-      } catch (error) {
-        console.error("Error getting current location:", error);
-        // Continue to fallback options
+      if (!("geolocation" in navigator)) {
+        setLocationError("Your browser doesn't support geolocation");
+        setIsLoadingLocation(false);
+        return;
       }
 
-      // Fallback to profile location if available
-      if (user?.latitude && user?.longitude) {
-        const profileLocation = {
-          lat: user.latitude,
-          lng: user.longitude
+      try {
+        // First, check if we have permission
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+
+        if (permission.state === 'denied') {
+          throw new Error('Location permission denied. Please enable location services in your browser settings.');
+        }
+
+        // Get position with a timeout
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            }
+          );
+        });
+
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
         };
-        console.log("Using profile location:", profileLocation);
-        setCurrentLocation(profileLocation);
+
+        setCurrentLocation(location);
+        // Set default 2-mile radius circle (3218.69 meters)
         setSearchCircle({
-          center: profileLocation,
+          center: location,
           radius: 3218.69,
         });
         setIsLocationSearchActive(true);
-        setLocationError("Using location from your profile. Enable location services for current location.");
-      } else {
-        // Final fallback to default location
-        const defaultLocation = { lat: 20.5937, lng: 78.9629 }; // Center of India
-        console.log("Using default location:", defaultLocation);
-        setCurrentLocation(defaultLocation);
+        setLocationError(null);
+      } catch (error) {
+        console.error("Error getting location:", error);
         setLocationError(
-          "Unable to get your location. Please enable location services or update your location in profile settings."
+          error instanceof Error
+            ? error.message
+            : "Unable to get your location. Please check your browser settings."
         );
+        // Set a default location (this could be based on IP geolocation in a production app)
+        const defaultLocation = { lat: 37.7749, lng: -122.4194 }; // San Francisco
+        setCurrentLocation(defaultLocation);
+        setSearchCircle({
+          center: defaultLocation,
+          radius: 3218.69,
+        });
+        setIsLocationSearchActive(true);
+      } finally {
+        setIsLoadingLocation(false);
       }
     };
 
-    // Reset states before getting location
-    setIsLoadingLocation(true);
-    setLocationError(null);
-    getLocation().finally(() => {
-      setIsLoadingLocation(false);
-    });
-  }, [user]);
+    getLocation();
+  }, []);
 
   const { data: products } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -567,18 +561,12 @@ const ProductSearch = () => {
             {/* Map View */}
             <div>
               <div className="w-full h-[400px] relative rounded-lg border overflow-hidden">
-                {isLoadingLocation ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  </div>
-                ) : (
-                  <Map
-                    defaultCenter={currentLocation || undefined}
-                    enableDrawing={true}
-                    onCircleComplete={handleCircleComplete}
-                    circle={searchCircle}
-                  />
-                )}
+                <Map
+                  defaultCenter={currentLocation || undefined}
+                  enableDrawing={true}
+                  onCircleComplete={handleCircleComplete}
+                  circle={searchCircle}
+                />
               </div>
               <div className="mt-4 flex items-center gap-4">
                 {searchCircle && (

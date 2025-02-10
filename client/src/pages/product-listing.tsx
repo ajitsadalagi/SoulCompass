@@ -25,7 +25,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format } from 'date-fns';
 import { getProductEmoji, getCategoryEmoji } from "@shared/helpers";
 import { FiSearch } from 'react-icons/fi';
-import { Loader2 } from 'lucide-react';
 
 // Define proper type for local admin data
 interface LocalAdmin {
@@ -191,49 +190,31 @@ export default function ProductListing() {
   const [selectedAdmins, setSelectedAdmins] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number }>({
-    lat: 20.5937, // Default to India's coordinates
+    lat: 20.5937,
     lng: 78.9629
-  });
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [isMapReady, setIsMapReady] = useState(false);
+  }); // Default to India's coordinates
 
   useEffect(() => {
-    const getLocation = async () => {
-      setIsLoadingLocation(true);
-      try {
-        if ("geolocation" in navigator) {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 5000,
-              maximumAge: 0
-            });
-          });
-
-          const location = {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
-          setCurrentLocation(location);
-          setLocationError(null);
-        }
-      } catch (error) {
-        console.error('Location error:', error);
-        if (user?.latitude && user?.longitude) {
-          setCurrentLocation({
-            lat: user.latitude,
-            lng: user.longitude
+          setCurrentLocation(newLocation);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          toast({
+            title: "Location Error",
+            description: "Could not get your current location. Using default location.",
+            variant: "destructive",
           });
-          setLocationError("Using location from your profile");
         }
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    };
-
-    getLocation();
-  }, [user]);
+      );
+    }
+  }, []);
 
   const { data: localAdmins, isError, error } = useQuery<LocalAdmin[]>({
     queryKey: ["/api/users/local-admins"],
@@ -611,64 +592,87 @@ export default function ProductListing() {
                         <FormLabel>Select Location</FormLabel>
                         <FormControl>
                           <div className="w-full h-[400px] relative rounded-lg border overflow-hidden">
-                            {isLoadingLocation ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                                <Loader2 className="h-8 w-8 animate-spin" />
-                              </div>
-                            ) : (
-                              <Map
-                                defaultCenter={currentLocation}
-                                circle={null}
-                                enableDrawing={false}
-                                onMapLoad={(map) => {
-                                  map.addListener('click', async (e: google.maps.MapMouseEvent) => {
-                                    const position = e.latLng;
-                                    if (!position) return;
-
-                                    try {
-                                      const geocoder = new google.maps.Geocoder();
-                                      const result = await geocoder.geocode({
-                                        location: { lat: position.lat(), lng: position.lng() }
-                                      });
-
-                                      if (result.results[0]) {
-                                        let city = '';
-                                        let state = '';
-                                        for (const component of result.results[0].address_components) {
-                                          if (component.types.includes('locality')) {
-                                            city = component.long_name;
-                                          }
-                                          if (component.types.includes('administrative_area_level_1')) {
-                                            state = component.long_name;
-                                          }
+                            <Map
+                              defaultCenter={currentLocation}
+                              circle={null}
+                              enableDrawing={false}
+                              onMapLoad={(map) => {
+                                // Move geocoding logic here where Google Maps API is guaranteed to be loaded
+                                if (currentLocation.lat !== 20.5937 || currentLocation.lng !== 78.9629) {
+                                  const geocoder = new google.maps.Geocoder();
+                                  geocoder.geocode({
+                                    location: currentLocation
+                                  }).then((result) => {
+                                    if (result.results[0]) {
+                                      let city = '';
+                                      let state = '';
+                                      for (const component of result.results[0].address_components) {
+                                        if (component.types.includes('locality')) {
+                                          city = component.long_name;
                                         }
-
-                                        handleLocationSelect({
-                                          city,
-                                          state,
-                                          lat: position.lat(),
-                                          lng: position.lng()
-                                        });
+                                        if (component.types.includes('administrative_area_level_1')) {
+                                          state = component.long_name;
+                                        }
                                       }
-                                    } catch (error) {
-                                      console.error('Geocoding error:', error);
-                                      toast({
-                                        title: "Error",
-                                        description: "Failed to get address for selected location",
-                                        variant: "destructive",
+                                      handleLocationSelect({
+                                        city,
+                                        state,
+                                        lat: currentLocation.lat,
+                                        lng: currentLocation.lng
                                       });
                                     }
+                                  }).catch((error) => {
+                                    console.error('Geocoding error:', error);
+                                    toast({
+                                      title: "Location Error",
+                                      description: "Could not determine your city and state. Please select manually.",
+                                      variant: "destructive",
+                                    });
                                   });
-                                }}
-                              />
-                            )}
+                                }
+
+                                map.addListener('click', async (e: google.maps.MapMouseEvent) => {
+                                  const position = e.latLng;
+                                  if (!position) return;
+
+                                  const geocoder = new google.maps.Geocoder();
+                                  try {
+                                    const result = await geocoder.geocode({
+                                      location: { lat: position.lat(), lng: position.lng() }
+                                    });
+
+                                    if (result.results[0]) {
+                                      let city = '';
+                                      let state = '';
+                                      for (const component of result.results[0].address_components) {
+                                        if (component.types.includes('locality')) {
+                                          city = component.long_name;
+                                        }
+                                        if (component.types.includes('administrative_area_level_1')) {
+                                          state = component.long_name;
+                                        }
+                                      }
+
+                                      handleLocationSelect({
+                                        city,
+                                        state,
+                                        lat: position.lat(),
+                                        lng: position.lng()
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error('Geocoding error:', error);
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to get address for selected location",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                });
+                              }}
+                            />
                           </div>
                         </FormControl>
-                        {locationError && (
-                          <p className="text-sm text-destructive mt-2">
-                            {locationError}
-                          </p>
-                        )}
                         <p className="text-sm text-muted-foreground mt-2">
                           Click on the map to select your location
                         </p>

@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { GoogleMap, LoadScript, Libraries } from "@react-google-maps/api";
 import { Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "./alert";
 
 const containerStyle = {
   width: '100%',
   height: '100%'
 };
 
+// Define libraries array outside component to prevent unnecessary reloads
 const libraries: Libraries = ["drawing"];
 
 interface MapProps {
@@ -38,6 +38,7 @@ export function Map({
   const circleRef = useRef<google.maps.Circle>();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
+  // Get user's current location if no default center is provided
   useEffect(() => {
     if (defaultCenter) {
       setCurrentLocation(defaultCenter);
@@ -52,27 +53,11 @@ export function Map({
             lat: position.coords.latitude,
             lng: position.coords.longitude
           });
-          setLocationError(null);
           setIsLoading(false);
         },
         (error) => {
           console.error('Error getting location:', error);
-          let errorMessage = "Unable to get your location. ";
-
-          if (error.code === 1) {
-            errorMessage += "Please enable location services and refresh the page.";
-          } else if (error.code === 2) {
-            errorMessage += "Position unavailable. Please try again.";
-          } else if (error.code === 3) {
-            errorMessage += "Request timed out. Please try again.";
-          }
-
-          setLocationError(errorMessage);
-          // Fallback to a default location (center of India)
-          setCurrentLocation({
-            lat: 20.5937,
-            lng: 78.9629
-          });
+          setLocationError('Unable to get your location. Please enable location services.');
           setIsLoading(false);
         },
         {
@@ -83,11 +68,6 @@ export function Map({
       );
     } else {
       setLocationError('Geolocation is not supported by your browser.');
-      // Fallback to a default location
-      setCurrentLocation({
-        lat: 20.5937,
-        lng: 78.9629
-      });
       setIsLoading(false);
     }
   }, [defaultCenter]);
@@ -96,12 +76,14 @@ export function Map({
     mapRef.current = map;
     setIsLoading(false);
 
+    // Call onMapLoad callback if provided
     if (onMapLoad) {
       onMapLoad(map);
     }
 
     if (enableDrawing) {
       try {
+        // Initialize drawing manager
         const drawingManager = new google.maps.drawing.DrawingManager({
           drawingMode: google.maps.drawing.OverlayType.CIRCLE,
           drawingControl: true,
@@ -122,25 +104,31 @@ export function Map({
         drawingManager.setMap(map);
         drawingManagerRef.current = drawingManager;
 
+        // Add circle complete listener
         google.maps.event.addListener(drawingManager, 'circlecomplete', (circle: google.maps.Circle) => {
+          // Remove any existing circle
           if (circleRef.current) {
             circleRef.current.setMap(null);
           }
 
           circleRef.current = circle;
 
+          // Call the callback with circle details
           if (onCircleComplete) {
             onCircleComplete(circle.getCenter()!, circle.getRadius());
           }
 
+          // Allow drawing another circle
           drawingManager.setDrawingMode(null);
 
+          // Add radius change listener
           google.maps.event.addListener(circle, 'radius_changed', () => {
             if (onCircleComplete) {
               onCircleComplete(circle.getCenter()!, circle.getRadius());
             }
           });
 
+          // Add center change listener
           google.maps.event.addListener(circle, 'center_changed', () => {
             if (onCircleComplete) {
               onCircleComplete(circle.getCenter()!, circle.getRadius());
@@ -149,10 +137,10 @@ export function Map({
         });
       } catch (error) {
         console.error('Error initializing drawing manager:', error);
-        setLoadError(new Error('Failed to initialize drawing tools'));
       }
     }
 
+    // If a circle is provided, display it
     if (circle) {
       try {
         if (circleRef.current) {
@@ -170,6 +158,7 @@ export function Map({
           editable: enableDrawing,
         });
 
+        // Center the map on the circle
         map.setCenter(circle.center);
         const bounds = circleRef.current.getBounds();
         if (bounds) {
@@ -177,7 +166,6 @@ export function Map({
         }
       } catch (error) {
         console.error('Error creating circle:', error);
-        setLoadError(new Error('Failed to create search area'));
       }
     }
   }, [enableDrawing, onCircleComplete, circle, onMapLoad]);
@@ -191,9 +179,7 @@ export function Map({
   if (!apiKey) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted/10 rounded-lg">
-        <Alert variant="destructive">
-          <AlertDescription>Google Maps API key not configured</AlertDescription>
-        </Alert>
+        <p className="text-sm text-muted-foreground">Google Maps API key not configured</p>
       </div>
     );
   }
@@ -208,11 +194,9 @@ export function Map({
 
       {(loadError || locationError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/10 rounded-lg z-10">
-          <Alert variant="destructive">
-            <AlertDescription>
-              {loadError ? loadError.message : locationError}
-            </AlertDescription>
-          </Alert>
+          <p className="text-sm text-destructive">
+            {loadError ? "Failed to load Google Maps" : locationError}
+          </p>
         </div>
       )}
 
@@ -224,8 +208,8 @@ export function Map({
         <div className="w-full h-full">
           <GoogleMap
             mapContainerStyle={containerStyle}
-            center={defaultCenter || currentLocation || { lat: 20.5937, lng: 78.9629 }}
-            zoom={currentLocation || defaultCenter ? 15 : 5}
+            center={defaultCenter || currentLocation || { lat: 0, lng: 0 }}
+            zoom={currentLocation || defaultCenter ? 15 : 2}
             onLoad={handleLoad}
             options={{
               streetViewControl: false,
