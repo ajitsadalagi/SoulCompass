@@ -1,0 +1,38 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.DS_Store
+*.pem
+.env
+.env.*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Temporary files
+*.log
+*.tmp
+
+# Build files
+/build
+/dist
+/out
+
+# Cache
+.cache/
+.npm
+
+# Firebase credentials
+**/firebase-adminsdk*.json
+attached_assets/csanthi-a20cf-firebase-adminsdk-fbsvc-bd6cb9d169.json

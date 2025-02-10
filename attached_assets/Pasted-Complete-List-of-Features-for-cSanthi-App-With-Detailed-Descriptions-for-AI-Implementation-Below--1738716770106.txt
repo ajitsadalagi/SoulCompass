@@ -1,0 +1,192 @@
+Complete List of Features for cSanthi App (With Detailed Descriptions for AI Implementation)
+
+Below is a structured list of all features, categorized by user roles with detailed descriptions. This will help integrate AI-powered functionalities effectively.
+
+1. User Registration & Authentication
+
+1.1 Mobile Number Registration
+	•	Users must register using a mobile number.
+	•	AI Feature: Verify identity and detect fraudulent registrations.
+	•	OTP-based authentication for first-time login.
+	•	Users remain logged in unless they manually log out, delete the app, or are suspended.
+
+1.2 Role-Based Access
+	•	Users choose one of the following roles at registration:
+	1.	Buyer
+	2.	Seller
+	3.	Local Admin
+	4.	Super Admin
+	5.	Guest User (can browse products but cannot access seller details)
+
+1.3 Profile Management
+	•	Users can set up their profile with:
+	•	Name, contact details, location
+	•	Profile picture (Facebook/Google integration)
+	•	Preferred product categories
+	•	AI Feature: Profile enhancement suggestions based on user behavior.
+
+2. Product Listing & Management (For Sellers & Buyers)
+
+2.1 Listing Products
+	•	Sellers and buyers can list products with:
+	•	Product Name
+	•	Quantity Available
+	•	Quality Description
+	•	Availability Date
+	•	Target Price (Optional)
+	•	Pickup Location
+	•	Product Condition (New, Used, Perishable)
+	•	AI Feature: Auto-suggest missing details like pricing based on market trends.
+
+2.2 Auto-Deletion of Listings
+	•	Listings are auto-deleted when the availability date expires.
+	•	AI Feature: Notify sellers about soon-to-expire listings.
+
+2.3 Product Discovery
+	•	Buyers can search for products based on:
+	•	Product category (Fruits, Vegetables, Dairy, etc.)
+	•	AI-powered Image Search (Search products using photos)
+	•	Filters: Price, Distance, Availability Date, Quantity
+	•	AI Feature: Personalized product recommendations based on search history.
+
+2.4 Viewing Product Details
+	•	Buyers can view:
+	•	Number of views
+	•	Number of contact requests
+	•	Seller’s contact info (only after login)
+	•	Local Admin details (if applicable)
+	•	Product pickup location on Google Maps
+	•	AI Feature: Highlight trending or high-demand products.
+
+3. Location & Delivery Integration
+
+3.1 Radius-Based Product Discovery
+	•	Sellers & buyers can set a search radius (e.g., 5 miles, 10 miles).
+	•	AI Feature: Optimize radius settings based on user preferences and availability.
+
+3.2 Map Integration
+	•	Sellers/buyers can view product locations on a map.
+	•	AI-powered route optimization for deliveries.
+
+3.3 Contacting Local Admins for Delivery
+	•	Buyers/sellers can request local admins for delivery.
+	•	Admins get pickup & drop-off locations mapped.
+	•	AI Feature: Predict delivery times & suggest best routes.
+
+4. User Interaction & Notifications
+
+4.1 Contact Requests
+	•	Buyers can request contact details of sellers.
+	•	Sellers get notified when contact details are requested.
+	•	Sellers can track number of requests per listing.
+
+4.2 Notifications & Alerts
+	•	Real-time alerts for:
+	•	New buyers interested in a product.
+	•	Nearby sellers listing relevant products.
+	•	Expiring listings.
+	•	AI Feature: Smart notification timing based on user behavior.
+
+5. Local Admin Features
+
+5.1 Local Admin Registration
+	•	Local admins register with:
+	•	ID proof
+	•	Address proof
+	•	Aadhaar (Social Security ID)
+	•	PAN Card (Tax ID)
+	•	AI Feature: Document verification via OCR.
+
+5.2 Managing Users & Transactions
+	•	Can promote sellers in search results (after payment).
+	•	Earn from advertisements & promotions.
+	•	AI Feature: Predict local demand trends & optimize promotions.
+
+5.3 Delivery Facilitation
+	•	Local admins can charge a fee for delivery services.
+	•	AI Feature: Calculate delivery costs based on distance.
+
+6. Super Admin Features
+
+6.1 Super Admin Registration & Verification
+	•	Register after approval from Master Admin.
+	•	Validate Local Admins based on ID verification.
+
+6.2 Managing Local Admins
+	•	Approve/reject new Local Admins.
+	•	Generate QR codes for Local Admin login.
+	•	Monitor advertisement slots & transactions.
+
+6.3 AI-Powered Monitoring
+	•	Detect fraud or unusual activity.
+	•	Auto-flag suspicious transactions.
+
+7. Advertisement & Monetization Features
+
+7.1 Local Advertisements
+	•	Vendors can pay Local Admins to promote products.
+	•	Limited to 2 ads per city (First Come, First Serve).
+	•	Ads stay live for 8 days per payment.
+
+7.2 AI-Optimized Ad Placement
+	•	Suggest best ad slots based on user engagement.
+	•	Dynamic pricing based on demand.
+
+8. Special AI-Driven Features (Future Enhancements)
+
+8.1 Voice-Based Search & Listings
+	•	Users can search products using voice commands.
+	•	Sellers can list products by speaking instead of typing.
+
+8.2 Smart Product Recommendations
+	•	AI suggests best-selling products in a location.
+	•	Predicts demand based on seasonal trends.
+
+8.3 Bargaining & Dynamic Pricing
+	•	Buyers can negotiate prices through the app.
+	•	AI suggests fair market prices based on data.
+
+8.4 Consumption Analysis
+	•	Tracks a buyer’s monthly purchase habits.
+	•	Suggests restocking reminders.
+
+8.5 Bad Quality Reporting
+	•	Buyers can report low-quality products with images.
+	•	AI detects fake or misleading product listings.
+
+9. Technical Requirements
+
+9.1 Platforms
+	•	Android (4.1+)
+	•	iOS (12+)
+
+9.2 Backend & Cloud Storage
+	•	User Data:
+	•	Name, mobile number, profile pic, product history.
+	•	Admin Data:
+	•	Verified sellers, local admin earnings, QR codes.
+
+9.3 Security & Compliance
+	•	AI-powered fraud detection.
+	•	Encrypted payment & contact details.
+
+10. AI Implementation Plan
+
+Feature	AI Use Case
+Product Search	Image recognition for product discovery
+Price Prediction	AI suggests best price based on demand
+Voice Search	Users can list & search via voice commands
+Fraud Detection	AI detects fake listings & prevents scams
+Delivery Optimization	AI suggests best routes for deliveries
+Personalized Ads	AI recommends best ad placements
+Smart Notifications	AI determines best times for alerts
+Consumption Tracking	AI suggests when to restock items
+
+Next Steps
+
+Would you like me to:
+	1.	Help design an AI-based architecture for these features?
+	2.	Break down the development roadmap for implementation?
+	3.	Provide UI wireframes for an AI-enhanced version of the app?
+
+Let me know how you’d like to proceed! 🚀

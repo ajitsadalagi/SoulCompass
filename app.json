@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Universal Marketplace",
+    "slug": "universal-marketplace",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./generated-icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.universalmarketplace.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby products and sellers",
+        "NSLocationAlwaysUsageDescription": "We need your location to show nearby products and sellers"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./generated-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.universalmarketplace.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./generated-icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your customers."
+        }
+      ]
+    ],
+    "scheme": "universalmarketplace",
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
+    "owner": "ajeet001",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/your-project-id"
+    },
+    "developmentClient": {
+      "silentLaunch": true
+    }
+  }
+}

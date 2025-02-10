@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .username {
+    @apply text-purple-600 font-semibold;
+  }
+
+  .product-name {
+    @apply text-green-600 font-semibold;
+  }
+
+  .table-container {
+    @apply relative overflow-x-auto rounded-lg p-1;
+  }
+
+  .table-container::before {
+    content: '';
+    @apply absolute inset-0 rounded-lg;
+    background: linear-gradient(
+      45deg,
+      rgba(59, 130, 246, 0.5),
+      rgba(147, 51, 234, 0.5),
+      rgba(22, 163, 74, 0.5),
+      rgba(59, 130, 246, 0.5)
+    );
+    background-size: 400% 400%;
+    filter: blur(8px);
+    z-index: 0;
+    animation: borderGlow 6s ease-in-out infinite;
+  }
+
+  @keyframes borderGlow {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .table-glow {
+    @apply bg-background border-2 border-border rounded-lg relative overflow-hidden z-10;
+    box-shadow: 
+      0 0 20px rgba(59, 130, 246, 0.4),
+      0 0 15px rgba(147, 51, 234, 0.4),
+      0 0 10px rgba(22, 163, 74, 0.4);
+  }
+}

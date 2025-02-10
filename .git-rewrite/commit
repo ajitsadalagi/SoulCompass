@@ -1,0 +1,10 @@
+tree f931fde63477f87923e9fdfcf9dae65ebea9ecbb
+parent 3da8afb753596ddba46381bd9bc45b9639d771bc
+author ajeet0011 <39351452-ajeet0011@users.noreply.replit.com> 1738820926 +0000
+committer ajeet0011 <39351452-ajeet0011@users.noreply.replit.com> 1738820926 +0000
+
+Agent query: Can you try to create a new product listing by selecting a category, item, filling in the details, and clicking the List Product button? Does it work now?
+
+Fix: Restore product listing functionality broken by emoji implementation
+
+Screenshot: https://storage.googleapis.com/screenshot-production-us-central1/1b3b4866-bd74-45fe-9668-717e52c9cfb6/ef2dd8b2-3edf-4ee1-b55e-ab7da58fa546.jpg
