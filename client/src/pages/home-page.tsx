@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { getProductEmoji, getCategoryEmoji } from "@shared/helpers";
-import { useEffect, useState } from "react"; // Add useState and useEffect
+import { useEffect, useState } from "react";
 
 // Add new function to handle map directions
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -18,6 +18,35 @@ function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city
   }
   // Fallback to city,state if coordinates are not available
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
+}
+
+// Add function to sort products by admin status
+function sortProductsByAdminStatus(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const getAdminPriority = (product: Product) => {
+      const admin = product.admins?.[0];
+      if (!admin) return 0;
+      if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') return 2;
+      if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') return 1;
+      return 0;
+    };
+
+    return getAdminPriority(b) - getAdminPriority(a);
+  });
+}
+
+// Add function to get card style based on admin status
+function getCardStyle(product: Product): string {
+  const admin = product.admins?.[0];
+  if (!admin) return '';
+
+  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
+    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg';
+  }
+  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg';
+  }
+  return '';
 }
 
 export default function HomePage() {
@@ -31,7 +60,6 @@ export default function HomePage() {
   } | null>(null);
 
   useEffect(() => {
-    // Get user's current location when component mounts
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -131,7 +159,7 @@ export default function HomePage() {
         title: "Local Admin Contact Information",
         description: (
           <div className="mt-2 space-y-2">
-            <p><strong>Name:</strong> {data.name || data.username}</p>
+            <p><strong>Name:</strong> {data.username}</p>
             <p><strong>Mobile:</strong> {data.mobileNumber}</p>
             <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
           </div>
@@ -148,7 +176,6 @@ export default function HomePage() {
     }
   };
 
-  // Add the new click handler for location
   const handleLocationClick = (product: Product) => {
     const url = getGoogleMapsDirectionsUrl(
       product.latitude,
@@ -166,6 +193,9 @@ export default function HomePage() {
   const isAdminUser = user.adminStatus === "approved" &&
     (user.adminType === "master_admin" || user.adminType === "super_admin");
 
+  // Sort products by admin status
+  const sortedProducts = products ? sortProductsByAdminStatus(products) : [];
+
   return (
     <div className="container mx-auto p-8">
       {isAdminUser && (
@@ -180,8 +210,8 @@ export default function HomePage() {
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products?.map((product) => (
-          <Card key={product.id} className="table-glow">
+        {sortedProducts.map((product) => (
+          <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
             <CardHeader className="flex flex-row items-center gap-4">
               <span className="text-4xl">{getProductEmoji(product.name, product.category)}</span>
               <CardTitle className="product-name">{product.name}</CardTitle>
@@ -215,9 +245,15 @@ export default function HomePage() {
                         <button
                           key={admin.id}
                           onClick={() => handleContactAdmin(admin.id)}
-                          className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
+                          className={`username inline-flex items-center px-2 py-1 rounded-full transition-colors cursor-pointer ${
+                            admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
+                              ? 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                              : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
+                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              : 'bg-primary/10 hover:bg-primary/20'
+                          }`}
                         >
-                          {admin.name || admin.username}
+                          {admin.username}
                         </button>
                       ))
                     ) : (
