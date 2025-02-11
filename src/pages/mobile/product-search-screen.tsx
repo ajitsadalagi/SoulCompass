@@ -4,11 +4,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
+// Add sorting function for admin listings
+const sortProductsByAdminStatus = (products) => {
+  return [...products].sort((a, b) => {
+    const getAdminPriority = (product) => {
+      const admin = product.admins?.[0];
+      if (!admin) return 0;
+      if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') return 2;
+      if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') return 1;
+      return 0;
+    };
+    return getAdminPriority(b) - getAdminPriority(a);
+  });
+};
+
+// Add function to get card style based on admin status
+const getCardStyle = (product) => {
+  const admin = product.admins?.[0];
+  if (!admin) return styles.productCard;
+
+  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
+    return [styles.productCard, styles.superAdminCard];
+  }
+  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+    return [styles.productCard, styles.localAdminCard];
+  }
+  return styles.productCard;
+};
+
 export default function ProductSearchScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState([]);
   const [currentLocation, setCurrentLocation] = useState({
-    latitude: 37.7749, // Default to San Francisco
+    latitude: 37.7749,
     longitude: -122.4194,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
@@ -49,7 +77,9 @@ export default function ProductSearchScreen({ navigation }) {
       const response = await fetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}`);
       if (response.ok) {
         const data = await response.json();
-        setProducts(data);
+        // Sort products to show admin listings first
+        const sortedProducts = sortProductsByAdminStatus(data);
+        setProducts(sortedProducts);
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -63,7 +93,7 @@ export default function ProductSearchScreen({ navigation }) {
 
   const renderProduct = ({ item }) => (
     <TouchableOpacity 
-      style={styles.productCard}
+      style={getCardStyle(item)}
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
       <View style={styles.productInfo}>
@@ -160,6 +190,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     overflow: 'hidden',
+  },
+  // Add styles for admin cards
+  superAdminCard: {
+    borderWidth: 2,
+    borderColor: '#8b5cf6', // violet-500
+    shadowColor: '#c4b5fd', // violet-200
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  localAdminCard: {
+    borderWidth: 2,
+    borderColor: '#a855f7', // purple-500
+    shadowColor: '#e9d5ff', // purple-200
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   productInfo: {
     padding: 16,
