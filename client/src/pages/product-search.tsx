@@ -339,10 +339,10 @@ function getCardStyle(product: Product): string {
   const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
   const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
 
-  if (superAdmin) {
+  if (superAdmin && product.sellerId === superAdmin.id) {
     return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
   }
-  if (localAdmin) {
+  if (localAdmin && product.sellerId === localAdmin.id) {
     return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
   }
 
