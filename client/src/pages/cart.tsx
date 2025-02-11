@@ -17,6 +17,7 @@ function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city
 }
 
 function formatPhoneNumber(phone: string): string {
+  if (!phone) return '';
   // Remove any non-digit characters except +
   const cleaned = phone.replace(/[^\d+]/g, '');
   // Only add country code if not already present
@@ -24,6 +25,7 @@ function formatPhoneNumber(phone: string): string {
 }
 
 function getWhatsAppLink(phone: string): string {
+  if (!phone) return '#';
   const formattedPhone = formatPhoneNumber(phone);
   // Remove any remaining non-digit characters for WhatsApp
   const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
@@ -31,6 +33,7 @@ function getWhatsAppLink(phone: string): string {
 }
 
 function getPhoneLink(phone: string): string {
+  if (!phone) return '#';
   const formattedPhone = formatPhoneNumber(phone);
   return `tel:${formattedPhone}`;
 }
@@ -99,7 +102,7 @@ export default function CartPage() {
     }
   };
 
-  if (items.length === 0) {
+  if (!items || items.length === 0) {
     return (
       <div className="container mx-auto p-8">
         <Card className="p-8 text-center">
@@ -153,8 +156,8 @@ export default function CartPage() {
                       size="sm"
                       onClick={() => {
                         const url = getGoogleMapsDirectionsUrl(
-                          item.latitude || null,
-                          item.longitude || null,
+                          item.latitude,
+                          item.longitude,
                           item.city,
                           item.state
                         );

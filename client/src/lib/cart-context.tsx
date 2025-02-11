@@ -32,12 +32,21 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const [items, setItems] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem('cart');
-    return savedCart ? JSON.parse(savedCart) : [];
+    try {
+      const savedCart = localStorage.getItem('cart');
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+      return [];
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(items));
+    try {
+      localStorage.setItem('cart', JSON.stringify(items));
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
   }, [items]);
 
   const addItem = (newItem: CartItem) => {
@@ -87,24 +96,42 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product) => {
+    if (!product || typeof product !== 'object') {
+      console.error('Invalid product data:', product);
+      return;
+    }
+
+    const price = typeof product.targetPrice === 'string' 
+      ? parseFloat(product.targetPrice) 
+      : (product.targetPrice || 0);
+
+    if (isNaN(price)) {
+      console.error('Invalid price:', product.targetPrice);
+      return;
+    }
+
     const cartItem: CartItem = {
       id: product.id,
-      name: product.name,
-      price: typeof product.targetPrice === 'string' ? parseFloat(product.targetPrice) : (product.targetPrice || 0),
+      name: product.name || '',
+      price: price,
       quantity: 1,
       sellerId: product.sellerId,
-      quality: product.quality,
-      category: product.category,
-      city: product.city,
-      state: product.state,
+      quality: product.quality || '',
+      category: product.category || '',
+      city: product.city || '',
+      state: product.state || '',
       latitude: product.latitude,
       longitude: product.longitude,
     };
+
     addItem(cartItem);
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalPrice = items.reduce((sum, item) => {
+    const itemPrice = typeof item.price === 'number' ? item.price : 0;
+    return sum + (itemPrice * item.quantity);
+  }, 0);
 
   return (
     <CartContext.Provider value={{
