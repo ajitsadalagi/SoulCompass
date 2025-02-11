@@ -28,6 +28,17 @@ function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
 }
 
+// Update the functions at the top of the file
+// Update the product name style function to use stronger colors
+function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
+  return `font-bold ${listingType === 'buyer' ? '!text-red-600' : '!text-green-600'}`;
+}
+
+// Add function to get text color based on listing type
+function getTextColorClass(listingType: 'buyer' | 'seller'): string {
+  return listingType === 'buyer' ? '!text-red-600/80' : '!text-green-600/80';
+}
+
 type ProductCategory = {
   id: "fruits" | "vegetables" | "dairy" | "other";
   label: string;
@@ -659,7 +670,7 @@ const ProductSearch = () => {
                           <span className="text-4xl">
                             {getProductEmoji(product.name, product.category)}
                           </span>
-                          <h3 className={`font-medium product-name ${product.listingType === 'buyer' ? 'text-red-500' : ''}`}>
+                          <h3 className={`font-medium product-name ${getProductNameStyle(product.listingType)}`}>
                             {product.name}
                             {product.listingType === 'buyer' && (
                               <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
@@ -667,9 +678,9 @@ const ProductSearch = () => {
                           </h3>
                         </div>
                         <div className="space-y-2 text-sm">
-                          <p>Quality: {product.quality}</p>
-                          <p>Price: ₹{product.targetPrice?.toString()}</p>
-                          <p>Quantity: {product.quantity}</p>
+                          <p className={getTextColorClass(product.listingType)}>Quality: {product.quality}</p>
+                          <p className={getTextColorClass(product.listingType)}>Price: ₹{product.targetPrice?.toString()}</p>
+                          <p className={getTextColorClass(product.listingType)}>Quantity: {product.quantity}</p>
                           <button
                             onClick={() => window.open(getGoogleMapsDirectionsUrl(
                               product.latitude,
@@ -677,7 +688,7 @@ const ProductSearch = () => {
                               product.city,
                               product.state
                             ), '_blank')}
-                            className="flex items-center gap-2 text-primary hover:underline cursor-pointer"
+                            className={`flex items-center gap-2 ${getTextColorClass(product.listingType)} hover:underline cursor-pointer`}
                           >
                             <MapPin className="w-4 h-4" />
                             <span>{product.city}, {product.state}</span>
@@ -688,7 +699,7 @@ const ProductSearch = () => {
                           </div>
 
                           <div className="border-t pt-2 mt-2">
-                            <p className="font-medium mb-1 flex items-center gap-2">
+                            <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
                               <User className="h-4 w-4" />
                               Local Admins:
                             </p>
@@ -721,7 +732,13 @@ const ProductSearch = () => {
                                         });
                                       }
                                     }}
-                                    className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
+                                    className={`username inline-flex items-center px-2 py-1 rounded-full ${
+                                      admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
+                                        ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
+                                        : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
+                                        ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
+                                        : 'bg-primary/10 hover:bg-primary/20'
+                                    } transition-colors cursor-pointer`}
                                   >
                                     {admin.username}
                                   </button>
