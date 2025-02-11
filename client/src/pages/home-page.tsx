@@ -45,25 +45,31 @@ function sortProductsByAdminStatus(products: Product[]): Product[] {
   });
 }
 
-// Update the card style function to properly check admin status
+// Update the card style function to properly check admin status and add glow effect
 function getCardStyle(product: Product): string {
   // Check for admin with most privilege first
   const admins = product.admins || [];
   const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
   const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
+  const isBuyerListing = product.listingType === 'buyer';
 
   if (superAdmin) {
-    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
+    return isBuyerListing 
+      ? 'border-red-500 border-2 shadow-red-200 shadow-lg animate-border-glow-red transition-all duration-1000'
+      : 'border-green-500 border-2 shadow-green-200 shadow-lg animate-border-glow-green transition-all duration-1000';
   }
   if (localAdmin) {
-    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
+    return isBuyerListing
+      ? 'border-red-400 border-2 shadow-red-100 shadow-lg animate-border-glow-red-light transition-all duration-1000'
+      : 'border-green-400 border-2 shadow-green-100 shadow-lg animate-border-glow-green-light transition-all duration-1000';
   }
 
-  // Regular user listing
+  // Regular user listing without glow
   return product.listingType === 'buyer'
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
+
 
 
 export default function HomePage() {
