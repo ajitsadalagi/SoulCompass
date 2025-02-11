@@ -269,7 +269,10 @@ export default function ProductListing() {
   const createProductMutation = useMutation({
     mutationFn: async (data: InsertProduct & { localAdminIds: number[] }) => {
       console.log('Submitting product data:', data);
-      const res = await apiRequest("POST", "/api/products", data);
+      const res = await apiRequest("POST", "/api/products", {
+        ...data,
+        listingType: listingMode
+      });
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Server returned error:', errorData);
@@ -281,7 +284,7 @@ export default function ProductListing() {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
-        description: "Product listed successfully"
+        description: `Product ${listingMode === 'buyer' ? 'request' : 'listing'} created successfully`
       });
       setLocation("/");
     },
@@ -342,6 +345,7 @@ export default function ProductListing() {
         longitude: formData.longitude,
         availabilityDate: new Date(),
         localAdminIds: selectedAdmins,
+        listingType: listingMode
       };
 
       console.log('Submitting product data:', productData);
@@ -458,9 +462,6 @@ export default function ProductListing() {
   // Update the handleModeChange function
   const handleModeChange = (value: 'seller' | 'buyer') => {
     setListingMode(value);
-    if (value === 'buyer') {
-      setLocation('/buyer-listing');
-    }
   };
 
   if (!user) {
@@ -487,7 +488,9 @@ export default function ProductListing() {
       <Card className="max-w-4xl mx-auto table-glow">
         <CardHeader>
           <div className="flex flex-col space-y-4">
-            <CardTitle>List a New Product</CardTitle>
+            <CardTitle>
+              {listingMode === 'seller' ? 'List a New Product' : 'Create Buy Request'}
+            </CardTitle>
             <Form {...form}>
               <RadioGroup
                 defaultValue="seller"

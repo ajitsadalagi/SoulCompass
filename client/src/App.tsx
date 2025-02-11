@@ -7,7 +7,6 @@ import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import ProductListing from "@/pages/product-listing";
 import ProductSearch from "@/pages/product-search";
-import BuyerListing from "@/pages/buyer-listing";
 import ProfilePage from "@/pages/profile-page";
 import AdminManagement from "@/pages/admin/management";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -30,11 +29,6 @@ function Router() {
       <Route path="/list-product">
         <AuthenticatedLayout>
           <ProductListing />
-        </AuthenticatedLayout>
-      </Route>
-      <Route path="/buyer-listing">
-        <AuthenticatedLayout>
-          <BuyerListing />
         </AuthenticatedLayout>
       </Route>
       <Route path="/list-product/:id">
