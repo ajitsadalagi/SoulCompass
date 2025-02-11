@@ -80,6 +80,22 @@ export class DatabaseStorage implements IStorage {
     await db.delete(productAdmins)
       .where(eq(productAdmins.adminId, id));
 
+    // Update any users who were approved by this user
+    await db.update(users)
+      .set({ 
+        approvedBy: null,
+        adminApprovalDate: null,
+        adminRejectionReason: null 
+      })
+      .where(eq(users.approvedBy, id));
+
+    // Update any users who requested approval from this user
+    await db.update(users)
+      .set({ 
+        requestedAdminId: null 
+      })
+      .where(eq(users.requestedAdminId, id));
+
     // Then delete the user
     await db.delete(users)
       .where(eq(users.id, id));
