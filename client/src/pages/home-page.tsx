@@ -11,6 +11,11 @@ import { useLocation } from "wouter";
 import { getProductEmoji, getCategoryEmoji } from "@shared/helpers";
 import { useEffect, useState } from "react";
 
+// Update the product name style function to use stronger colors
+function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
+  return `font-bold ${listingType === 'buyer' ? '!text-red-600' : '!text-green-600'}`;
+}
+
 // Add new function to handle map directions
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
   if (lat && lng) {
@@ -49,9 +54,6 @@ function getCardStyle(product: Product): string {
   return '';
 }
 
-function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
-  return listingType === 'buyer' ? 'text-red-600' : 'text-green-600';
-}
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -218,7 +220,7 @@ export default function HomePage() {
           <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
             <CardHeader className="flex flex-row items-center gap-4">
               <span className="text-4xl">{getProductEmoji(product.name, product.category)}</span>
-              <CardTitle className={`product-name ${getProductNameStyle(product.listingType)}`}>
+              <CardTitle className={getProductNameStyle(product.listingType)}>
                 {product.name}
               </CardTitle>
             </CardHeader>

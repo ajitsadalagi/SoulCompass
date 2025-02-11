@@ -19,8 +19,18 @@ const sortProductsByAdminStatus = (products) => {
 };
 
 const getProductNameStyle = (product) => {
-  if (!product.listingType) return styles.productName;
-  return product.listingType === 'buyer' ? styles.buyerProductName : styles.sellerProductName;
+  const baseStyle = {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  };
+
+  if (!product.listingType) return { ...baseStyle, color: '#16a34a' };
+
+  return {
+    ...baseStyle,
+    color: product.listingType === 'buyer' ? '#dc2626' : '#16a34a',
+  };
 };
 
 export default function ProductSearchScreen({ navigation }) {
@@ -230,19 +240,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
-    color: '#16a34a', // Default color
-  },
-  buyerProductName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#dc2626', // Red-600
-  },
-  sellerProductName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#16a34a', // Green-600
+    color: '#16a34a',
   },
   productCategory: {
     fontSize: 14,
