@@ -9,6 +9,7 @@ import ProductListing from "@/pages/product-listing";
 import ProductSearch from "@/pages/product-search";
 import ProfilePage from "@/pages/profile-page";
 import AdminManagement from "@/pages/admin/management";
+import UserManagementPage from "@/pages/admin/user-management";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthenticatedLayout } from "@/components/layouts/authenticated-layout";
 
@@ -44,6 +45,11 @@ function Router() {
       <Route path="/admin/management">
         <AuthenticatedLayout>
           <AdminManagement />
+        </AuthenticatedLayout>
+      </Route>
+      <Route path="/admin/users">
+        <AuthenticatedLayout>
+          <UserManagementPage />
         </AuthenticatedLayout>
       </Route>
       <Route>

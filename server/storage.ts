@@ -76,7 +76,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    // First, deactivate all products owned by this user
+    await db.update(products)
+      .set({ active: false })
+      .where(eq(products.sellerId, id));
+
+    // Remove any references in the product_admins table
+    await db.delete(productAdmins)
+      .where(eq(productAdmins.adminId, id));
+
+    // Update any users who were approved by this user
+    await db.update(users)
+      .set({ 
+        approvedBy: null,
+        adminApprovalDate: null,
+        adminRejectionReason: null 
+      })
+      .where(eq(users.approvedBy, id));
+
+    // Update any users who requested approval from this user
+    await db.update(users)
+      .set({ 
+        requestedAdminId: null 
+      })
+      .where(eq(users.requestedAdminId, id));
+
+    // Then delete the user
+    await db.delete(users)
+      .where(eq(users.id, id));
   }
 
   async createProduct(productData: InsertProduct & { sellerId: number; localAdminIds: number[] }): Promise<Product> {
@@ -126,7 +153,12 @@ export class DatabaseStorage implements IStorage {
   async getProductById(id: number): Promise<(Product & { admins: User[] }) | undefined> {
     const [product] = await db.select()
       .from(products)
-      .where(eq(products.id, id));
+      .where(
+        and(
+          eq(products.id, id),
+          eq(products.active, true)
+        )
+      );
 
     if (!product) return undefined;
 
@@ -165,14 +197,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminUsers(): Promise<User[]> {
+    // Return all users except the master admin
     return db.select()
       .from(users)
-      .where(
-        and(
-          eq(users.adminStatus, ADMIN_STATUSES.APPROVED),
-          eq(users.adminType, ADMIN_ROLES.NONE)
-        )
-      );
+      .orderBy(asc(users.id));
   }
 
   async getAdminRequests(adminType: string): Promise<User[]> {
@@ -284,7 +312,7 @@ export class DatabaseStorage implements IStorage {
       .from(products)
       .where(
         and(
-          eq(products.id, adminProducts[0].productId),
+          eq(products.id, adminProducts.map(ap => ap.productId)),
           eq(products.active, true)
         )
       );

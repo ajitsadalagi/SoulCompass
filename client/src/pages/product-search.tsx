@@ -19,6 +19,8 @@ import { format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Phone as PhoneIcon, MessageCircle } from "lucide-react";
+
 
 // Add the helper function for Google Maps directions URL
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -326,6 +328,22 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // Returns distance in meters
 }
 
+function formatPhoneNumber(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '');
+  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+}
+
+function getWhatsAppLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `https://wa.me/${formattedPhone}`;
+}
+
+function getPhoneLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `tel:${formattedPhone}`;
+}
+
+
 const filterSchema = z.object({
   listingType: z.enum(['seller', 'buyer'])
 });
@@ -466,13 +484,34 @@ const ProductSearch = () => {
       const data = await response.json();
       const product = products?.find(p => p.id === productId);
       const isBuyerListing = product?.listingType === 'buyer';
+      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
 
       toast({
         title: isBuyerListing ? "Buyer Contact Information" : "Seller Contact Information",
         description: (
           <div className="mt-2 space-y-2">
             <p><strong>Name:</strong> {data.seller.name}</p>
-            <p><strong>Mobile:</strong> {data.seller.mobileNumber}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         ),
         duration: 10000,
@@ -737,8 +776,28 @@ const ProductSearch = () => {
                                           description: (
                                             <div className="mt-2 space-y-2">
                                               <p><strong>Name:</strong> {data.name || data.username}</p>
-                                              <p><strong>Mobile:</strong> {data.mobileNumber}</p>
                                               <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+                                              <div className="flex flex-col gap-2">
+                                                <p className="font-semibold">Contact Options:</p>
+                                                <div className="flex gap-2">
+                                                  <a
+                                                    href={getPhoneLink(data.mobileNumber)}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                                  >
+                                                    <PhoneIcon className="w-4 h-4" />
+                                                    Call
+                                                  </a>
+                                                  <a
+                                                    href={getWhatsAppLink(data.mobileNumber)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                                                  >
+                                                    <MessageCircle className="w-4 h-4" />
+                                                    WhatsApp
+                                                  </a>
+                                                </div>
+                                              </div>
                                             </div>
                                           ),
                                           duration: 10000,

@@ -1,15 +1,47 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Phone, MapPin, Clock, Trash2, Shield, User } from "lucide-react";
+import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { getProductEmoji, getCategoryEmoji } from "@shared/helpers";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
+
+// Helper function to calculate distance between two points
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  // Return large distance if any coordinate is missing
+  if (!lat1 || !lon1 || !lat2 || !lon2) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const R = 6371000; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Returns distance in meters
+}
+
+// Add function to get Google Maps directions URL
+function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
+  if (lat && lng) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
+}
+
+// Add the category emoji function after the getGoogleMapsDirectionsUrl function
+//function getCategoryEmoji(category: string): string { ... }  //This is already defined above
 
 // Update the product name style function to use stronger colors
 function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
@@ -21,147 +53,144 @@ function getTextColorClass(listingType: 'buyer' | 'seller'): string {
   return listingType === 'buyer' ? '!text-red-600/80' : '!text-green-600/80';
 }
 
-// Add new function to handle map directions
-function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
-  if (lat && lng) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  }
-  // Fallback to city,state if coordinates are not available
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
-}
-
-// Add function to sort products by admin status
-function sortProductsByAdminStatus(products: Product[]): Product[] {
-  return [...products].sort((a, b) => {
-    const getAdminPriority = (product: Product) => {
-      const admin = product.admins?.[0];
-      if (!admin) return 0;
-      if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') return 2;
-      if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') return 1;
-      return 0;
-    };
-
-    return getAdminPriority(b) - getAdminPriority(a);
-  });
-}
-
-// Update the card style function to check seller's admin status
+// Update the card style function
 function getCardStyle(product: Product): string {
-  const isBuyerListing = product.listingType === 'buyer';
-  const sellerAdminType = product.sellerAdminType;
-  const sellerAdminStatus = product.sellerAdminStatus;
-  const isApprovedAdmin = sellerAdminStatus === 'approved';
+  const admins = product.admins || [];
+  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
+  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
 
-  if (isApprovedAdmin && sellerAdminType === 'super_admin') {
-    return isBuyerListing 
-      ? 'border-red-500 border-2 shadow-red-200 shadow-lg animate-border-glow-red transition-all duration-1000'
-      : 'border-green-500 border-2 shadow-green-200 shadow-lg animate-border-glow-green transition-all duration-1000';
+  if (superAdmin && product.sellerId === superAdmin.id) {
+    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
   }
-  if (isApprovedAdmin && sellerAdminType === 'local_admin') {
-    return isBuyerListing
-      ? 'border-red-400 border-2 shadow-red-100 shadow-lg animate-border-glow-red-light transition-all duration-1000'
-      : 'border-green-400 border-2 shadow-green-100 shadow-lg animate-border-glow-green-light transition-all duration-1000';
+  if (localAdmin && product.sellerId === localAdmin.id) {
+    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
   }
 
-  // Regular user listing without glow
+  // Regular user listing
   return product.listingType === 'buyer'
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
 
+// Add helper functions after existing helper functions
+function formatPhoneNumber(phone: string): string {
+  // Remove any non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+  // Add country code if not present
+  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+}
+
+function getWhatsAppLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `https://wa.me/${formattedPhone}`;
+}
+
+function getPhoneLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `tel:${formattedPhone}`;
+}
 
 
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [currentLocation, setCurrentLocation] = useState<{
-    latitude: number;
-    longitude: number;
+    lat: number;
+    lng: number;
   } | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          toast({
-            title: "Location Error",
-            description: "Unable to get your current location. Using default location.",
-            variant: "destructive",
-          });
+    const getLocation = async () => {
+      if (!("geolocation" in navigator)) {
+        setLocationError("Your browser doesn't support geolocation");
+        setIsLoadingLocation(false);
+        return;
+      }
+
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+
+        if (permission.state === 'denied') {
+          throw new Error('Location permission denied. Please enable location services in your browser settings.');
         }
-      );
-    }
-  }, [toast]);
+
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            }
+          );
+        });
+
+        setCurrentLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationError(null);
+      } catch (error) {
+        console.error("Error getting location:", error);
+        setLocationError(
+          error instanceof Error
+            ? error.message
+            : "Unable to get your location. Please check your browser settings."
+        );
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    };
+
+    getLocation();
+  }, []);
 
   const { data: products } = useQuery<Product[]>({
-    queryKey: ["/api/products", currentLocation?.latitude, currentLocation?.longitude],
-    queryFn: async () => {
-      const url = new URL("/api/products", window.location.origin);
-      if (currentLocation) {
-        url.searchParams.append("lat", currentLocation.latitude.toString());
-        url.searchParams.append("lng", currentLocation.longitude.toString());
-      }
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      return response.json();
-    },
-    enabled: !!user,
+    queryKey: ["/api/products"],
+    enabled: !!user && !isLoadingLocation && !locationError,
   });
 
-  const deleteProductMutation = useMutation({
-    mutationFn: async (productId: number) => {
-      await apiRequest("DELETE", `/api/products/${productId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products", currentLocation?.latitude, currentLocation?.longitude] });
-      toast({
-        title: "Success",
-        description: "Product has been delisted successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleDeleteProduct = async (productId: number) => {
-    try {
-      await deleteProductMutation.mutateAsync(productId);
-    } catch (error) {
-      console.error('Error deleting product:', error);
-    }
-  };
-
+  // Update the handleContactSeller function
   const handleContactSeller = async (productId: number) => {
     try {
       const response = await apiRequest("POST", `/api/products/${productId}/contact`);
       const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
 
       toast({
         title: "Seller Contact Information",
         description: (
           <div className="mt-2 space-y-2">
             <p><strong>Name:</strong> {data.seller.name}</p>
-            <p><strong>Mobile:</strong> {data.seller.mobileNumber}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         ),
         duration: 10000,
       });
-
-      await queryClient.invalidateQueries({ queryKey: ["/api/products", currentLocation?.latitude, currentLocation?.longitude] });
     } catch (error) {
       console.error('Error contacting seller:', error);
       toast({
@@ -172,18 +201,40 @@ export default function HomePage() {
     }
   };
 
-  const handleContactAdmin = async (adminId: number) => {
+  // Update the handleAdminClick function
+  const handleAdminClick = async (adminId: number) => {
     try {
       const response = await apiRequest("GET", `/api/users/admin/${adminId}`);
       const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.mobileNumber);
 
       toast({
         title: "Local Admin Contact Information",
         description: (
           <div className="mt-2 space-y-2">
-            <p><strong>Name:</strong> {data.username}</p>
-            <p><strong>Mobile:</strong> {data.mobileNumber}</p>
+            <p><strong>Name:</strong> {data.name || data.username}</p>
             <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         ),
         duration: 10000,
@@ -198,57 +249,92 @@ export default function HomePage() {
     }
   };
 
-  const handleLocationClick = (product: Product) => {
-    const url = getGoogleMapsDirectionsUrl(
-      product.latitude,
-      product.longitude,
-      product.city,
-      product.state
-    );
-    window.open(url, '_blank');
-  };
-
   if (!user) {
     return null;
   }
 
-  const isAdminUser = user.adminStatus === "approved" &&
-    (user.adminType === "master_admin" || user.adminType === "super_admin");
+  if (isLoadingLocation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card>
+          <CardContent className="p-6">
+            <p>Loading your location...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  // Sort products by admin status
-  const sortedProducts = products ? sortProductsByAdminStatus(products) : [];
+  if (locationError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-destructive">{locationError}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Filter products within 2 miles radius (3218.69 meters)
+  const nearbyProducts = products?.filter(product => {
+    if (!currentLocation || !product.latitude || !product.longitude) {
+      return false;
+    }
+
+    const distance = calculateDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      product.latitude,
+      product.longitude
+    );
+
+    return distance <= 3218.69; // 2 miles in meters
+  });
 
   return (
     <div className="container mx-auto p-8">
-      {isAdminUser && (
-        <div className="mb-6">
-          <Button
-            onClick={() => setLocation("/admin/management")}
-            className="flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4" />
-            Admin Management
-          </Button>
-        </div>
-      )}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <p>Showing products within 2 miles of your location</p>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedProducts.map((product) => (
+        {nearbyProducts?.map((product) => (
           <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
             <CardHeader className="flex flex-row items-center gap-4">
-              <span className="text-4xl">{getProductEmoji(product.name, product.category)}</span>
-              <CardTitle className={getProductNameStyle(product.listingType)}>
-                {product.name}
-              </CardTitle>
+              <div className="flex items-center gap-4 mb-2">
+                <span className="text-4xl flex items-center">
+                  {getCategoryEmoji(product.category)} → {getProductEmoji(product.name, product.category)}
+                </span>
+                <h3 className={`font-medium product-name ${getProductNameStyle(product.listingType)}`}>
+                  {product.name}
+                  {product.listingType === 'buyer' && (
+                    <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
+                  )}
+                </h3>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
-                <p className={getTextColorClass(product.listingType)}>Quantity: {product.quantity}</p>
-                <p className={getTextColorClass(product.listingType)}>Quality: {product.quality}</p>
-                <p className={getTextColorClass(product.listingType)}>Condition: {product.condition}</p>
-                <p className={getTextColorClass(product.listingType)}>Category: {product.category}</p>
-                <p className={getTextColorClass(product.listingType)}>Price: ₹{product.targetPrice?.toString()}</p>
+                <p className={getTextColorClass(product.listingType)}>
+                  Quantity: {product.quantity}
+                </p>
+                <p className={getTextColorClass(product.listingType)}>
+                  Quality: {product.quality}
+                </p>
+                <p className={getTextColorClass(product.listingType)}>
+                  Price: ₹{product.targetPrice?.toString()}
+                </p>
                 <button
-                  onClick={() => handleLocationClick(product)}
+                  onClick={() => window.open(getGoogleMapsDirectionsUrl(
+                    product.latitude,
+                    product.longitude,
+                    product.city,
+                    product.state
+                  ), '_blank')}
                   className={`flex items-center gap-2 ${getTextColorClass(product.listingType)} hover:underline cursor-pointer`}
                 >
                   <MapPin className="w-4 h-4" />
@@ -258,6 +344,7 @@ export default function HomePage() {
                   <Clock className="w-4 h-4" />
                   <span>Listed {format(new Date(product.createdAt), 'PPp')}</span>
                 </div>
+
                 <div className="border-t pt-2 mt-2">
                   <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
                     <User className="w-4 h-4" />
@@ -268,8 +355,8 @@ export default function HomePage() {
                       product.admins.map((admin) => (
                         <button
                           key={admin.id}
-                          onClick={() => handleContactAdmin(admin.id)}
-                          className={`username inline-flex items-center px-2 py-1 rounded-full transition-colors cursor-pointer ${
+                          onClick={() => handleAdminClick(admin.id)}
+                          className={`username inline-flex items-center px-2 py-1 rounded-full cursor-pointer transition-colors ${
                             admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
                               ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
                               : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
@@ -281,44 +368,29 @@ export default function HomePage() {
                         </button>
                       ))
                     ) : (
-                      <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                      <span className="text-sm text-muted-foreground">
+                        No local admins assigned
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
-            </CardContent>
-            <div className="px-6 pb-6">
-              <div className="flex items-center justify-between border-t pt-4">
+
+              <div className="flex justify-between items-center mt-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Eye className="w-4 h-4" />
                   <span>{product.views} views</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {user.roles.includes("buyer") && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleContactSeller(product.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <Phone className="w-4 h-4" />
-                      Contact ({product.contactRequests || 0})
-                    </Button>
-                  )}
-                  {user.roles.includes("seller") && user.id === product.sellerId && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteProduct(product.id)}
-                      className="flex items-center gap-2"
-                      disabled={deleteProductMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {deleteProductMutation.isPending ? "Deleting..." : "Delete"}
-                    </Button>
-                  )}
-                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleContactSeller(product.id)}
+                  className="flex items-center gap-2"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Contact ({product.contactRequests || 0})
+                </Button>
               </div>
-            </div>
+            </CardContent>
           </Card>
         ))}
       </div>
