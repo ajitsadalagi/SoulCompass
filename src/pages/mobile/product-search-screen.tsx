@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
@@ -54,46 +54,135 @@ const getTextStyle = (product: Product, isTitle = false) => {
   };
 };
 
-const getCardStyle = (product: Product) => {
-  const admin = product.admins?.[0];
-  if (!admin) return styles.productCard;
+const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) => {
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
-  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
-    return {
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const getCardStyle = () => {
+    const admin = item.admins?.[0];
+    const isAdminApproved = admin?.adminStatus === 'approved';
+    const isSuperAdmin = admin?.adminType === 'super_admin';
+    const isLocalAdmin = admin?.adminType === 'local_admin';
+    const isBuyerListing = item.listingType === 'buyer';
+
+    const baseStyle = {
       ...styles.productCard,
-      borderWidth: 3,
-      borderColor: '#8b5cf6', // violet-500
-      backgroundColor: '#f5f3ff', // violet-50
-      shadowColor: '#8b5cf6',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 8,
-      elevation: 10,
-      transform: [{ scale: 1.02 }],
+      borderWidth: 2,
     };
-  }
 
-  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+    if (isAdminApproved && isSuperAdmin) {
+      return {
+        ...baseStyle,
+        borderColor: '#8b5cf6',
+        backgroundColor: '#f5f3ff',
+        transform: [
+          { scale: 1.02 },
+          {
+            translateY: glowAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -2],
+            }),
+          },
+        ],
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 10,
+      };
+    }
+
+    if (isAdminApproved && isLocalAdmin) {
+      return {
+        ...baseStyle,
+        borderColor: '#a855f7',
+        backgroundColor: '#faf5ff',
+        transform: [
+          { scale: 1.01 },
+          {
+            translateY: glowAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -1],
+            }),
+          },
+        ],
+        shadowColor: '#a855f7',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 8,
+      };
+    }
+
+    // Regular listing styles based on type
     return {
-      ...styles.productCard,
-      borderWidth: 3,
-      borderColor: '#a855f7', // purple-500
-      backgroundColor: '#faf5ff', // purple-50
-      shadowColor: '#a855f7',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 8,
-      elevation: 10,
-      transform: [{ scale: 1.01 }],
+      ...baseStyle,
+      borderColor: isBuyerListing ? '#dc2626' : '#16a34a',
+      backgroundColor: '#fff',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     };
-  }
-
-  // Regular listing
-  return {
-    ...styles.productCard,
-    borderWidth: product.listingType === 'buyer' ? 2 : 1,
-    borderColor: product.listingType === 'buyer' ? '#dc2626' : '#16a34a',
   };
+
+  return (
+    <Animated.View style={getCardStyle()}>
+      <TouchableOpacity onPress={onPress}>
+        <View style={styles.productInfo}>
+          <Text style={[styles.title, getTextStyle(item, true)]}>{item.name}</Text>
+          <Text style={getTextStyle(item)}>{item.category}</Text>
+          <Text style={getTextStyle(item)}>₹{item.targetPrice}</Text>
+          <Text style={getTextStyle(item)}>
+            Quantity: {item.quantity}
+          </Text>
+          <Text style={getTextStyle(item)}>
+            Quality: {item.quality}
+          </Text>
+          <Text style={getTextStyle(item)}>
+            Seller: <Text style={{ color: '#9333ea' }}>{item.sellerUsername}</Text>
+          </Text>
+          <Text style={getTextStyle(item)}>{item.city}, {item.state}</Text>
+        </View>
+
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            initialRegion={{
+              latitude: item.latitude,
+              longitude: item.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            }}
+          >
+            <Marker
+              coordinate={{
+                latitude: item.latitude,
+                longitude: item.longitude,
+              }}
+            />
+          </MapView>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export default function ProductSearchScreen({ navigation }: { navigation: any }) {
@@ -154,48 +243,6 @@ export default function ProductSearchScreen({ navigation }: { navigation: any })
     }
   };
 
-  const renderProduct = ({ item }: { item: Product }) => (
-    <TouchableOpacity
-      style={getCardStyle(item)}
-      onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
-    >
-      <View style={styles.productInfo}>
-        <Text style={getTextStyle(item, true)}>{item.name}</Text>
-        <Text style={getTextStyle(item)}>{item.category}</Text>
-        <Text style={getTextStyle(item)}>₹{item.targetPrice}</Text>
-        <Text style={getTextStyle(item)}>
-          Quantity: {item.quantity}
-        </Text>
-        <Text style={getTextStyle(item)}>
-          Quality: {item.quality}
-        </Text>
-        <Text style={getTextStyle(item)}>
-          Seller: <Text style={{ color: '#9333ea' }}>{item.sellerUsername}</Text>
-        </Text>
-        <Text style={getTextStyle(item)}>{item.city}, {item.state}</Text>
-      </View>
-
-      <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: item.latitude || currentLocation.latitude,
-            longitude: item.longitude || currentLocation.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          <Marker
-            coordinate={{
-              latitude: item.latitude || currentLocation.latitude,
-              longitude: item.longitude || currentLocation.longitude,
-            }}
-          />
-        </MapView>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchContainer}>
@@ -213,7 +260,12 @@ export default function ProductSearchScreen({ navigation }: { navigation: any })
 
       <FlatList
         data={products}
-        renderItem={renderProduct}
+        renderItem={({ item }) => (
+          <ProductCard
+            item={item}
+            onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
+          />
+        )}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.productList}
       />
@@ -254,17 +306,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   productCard: {
-    borderWidth: 1,
-    borderColor: '#e4e4e7',
-    borderRadius: 8,
     marginBottom: 16,
-    backgroundColor: '#fff',
+    borderRadius: 8,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   productInfo: {
     padding: 16,
