@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Phone, MapPin, Clock, Trash2, Shield, User } from "lucide-react";
+import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,25 @@ function getCardStyle(product: Product): string {
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
 
+// Add helper functions after existing helper functions
+function formatPhoneNumber(phone: string): string {
+  // Remove any non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+  // Add country code if not present
+  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+}
+
+function getWhatsAppLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `https://wa.me/${formattedPhone}`;
+}
+
+function getPhoneLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `tel:${formattedPhone}`;
+}
+
+
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -135,17 +154,39 @@ export default function HomePage() {
     enabled: !!user && !isLoadingLocation && !locationError,
   });
 
+  // Update the handleContactSeller function
   const handleContactSeller = async (productId: number) => {
     try {
       const response = await apiRequest("POST", `/api/products/${productId}/contact`);
       const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
 
       toast({
         title: "Seller Contact Information",
         description: (
           <div className="mt-2 space-y-2">
             <p><strong>Name:</strong> {data.seller.name}</p>
-            <p><strong>Mobile:</strong> {data.seller.mobileNumber}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         ),
         duration: 10000,
@@ -160,18 +201,40 @@ export default function HomePage() {
     }
   };
 
-  // Add function to handle admin contact info display
+  // Update the handleAdminClick function
   const handleAdminClick = async (adminId: number) => {
     try {
       const response = await apiRequest("GET", `/api/users/admin/${adminId}`);
       const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.mobileNumber);
+
       toast({
         title: "Local Admin Contact Information",
         description: (
           <div className="mt-2 space-y-2">
             <p><strong>Name:</strong> {data.name || data.username}</p>
-            <p><strong>Mobile:</strong> {data.mobileNumber}</p>
             <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <PhoneIcon className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         ),
         duration: 10000,
@@ -323,7 +386,7 @@ export default function HomePage() {
                   onClick={() => handleContactSeller(product.id)}
                   className="flex items-center gap-2"
                 >
-                  <Phone className="w-4 h-4" />
+                  <PhoneIcon className="w-4 h-4" />
                   Contact ({product.contactRequests || 0})
                 </Button>
               </div>
