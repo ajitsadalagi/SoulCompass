@@ -332,6 +332,29 @@ const filterSchema = z.object({
 
 type FilterValues = z.infer<typeof filterSchema>;
 
+// Add the card style function to match home page
+function getCardStyle(product: Product): string {
+  const admin = product.admins?.[0];
+  if (!admin) {
+    // Regular user listing
+    return product.listingType === 'buyer'
+      ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
+      : 'border-green-500 border-2 shadow-green-100 shadow-lg';
+  }
+
+  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
+    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg';
+  }
+  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg';
+  }
+
+  // Default case for regular users
+  return product.listingType === 'buyer'
+    ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
+    : 'border-green-500 border-2 shadow-green-100 shadow-lg';
+}
+
 const ProductSearch = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -664,7 +687,7 @@ const ProductSearch = () => {
                 {filteredProducts
                   .filter(product => product.listingType === form.watch('listingType'))
                   .map((product) => (
-                    <Card key={product.id} className={`table-glow ${product.listingType === 'buyer' ? 'border-red-500' : ''}`}>
+                    <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4 mb-2">
                           <span className="text-4xl">

@@ -45,10 +45,15 @@ function sortProductsByAdminStatus(products: Product[]): Product[] {
   });
 }
 
-// Add function to get card style based on admin status
+// Update the card style function to handle all cases
 function getCardStyle(product: Product): string {
   const admin = product.admins?.[0];
-  if (!admin) return '';
+  if (!admin) {
+    // Regular user listing
+    return product.listingType === 'buyer'
+      ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
+      : 'border-green-500 border-2 shadow-green-100 shadow-lg';
+  }
 
   if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
     return 'border-violet-500 border-2 shadow-violet-100 shadow-lg';
@@ -56,7 +61,11 @@ function getCardStyle(product: Product): string {
   if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
     return 'border-purple-500 border-2 shadow-purple-100 shadow-lg';
   }
-  return '';
+
+  // Default case for regular users
+  return product.listingType === 'buyer'
+    ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
+    : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
 
 
