@@ -965,9 +965,9 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {/* Add master admin user management section */}
-      {user.username === "masteradmin123" && user.adminType === "master_admin" && (
-        <Card>
+      {/* Master Admin User Management Section */}
+      {user?.username === "masteradmin123" && user?.adminType === "master_admin" && (
+        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FiUsers className="h-5 w-5" />
@@ -975,18 +975,18 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {allUsers?.length === 0 ? (
+            {!allUsers?.length ? (
               <p className="text-center text-muted-foreground">No users found</p>
             ) : (
               <div className="space-y-4">
-                {allUsers?.map((userData) => (
+                {allUsers.map((userData) => (
                   <div key={userData.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{userData.username}</span>
                         {userData.adminType !== 'none' && (
-                          <Badge variant={userData.adminType === 'super_admin' ? 'default' : 'secondary'}>
-                            {userData.adminType === 'super_admin' ? 'Super Admin' : 'Local Admin'}
+                          <Badge variant={userData.adminType === 'super_admin' ? 'default' : 'secondary'} className="capitalize">
+                            {userData.adminType.replace('_', ' ')}
                           </Badge>
                         )}
                         {userData.adminStatus === 'approved' && (
@@ -996,6 +996,7 @@ export default function ProfilePage() {
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
+                        <p>Name: {userData.firstName} {userData.lastName}</p>
                         <p>Mobile: {userData.mobileNumber}</p>
                         {userData.location && <p>Location: {userData.location}</p>}
                         <div className="flex gap-2">
@@ -1007,34 +1008,36 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="gap-2">
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogTitle>Delete User</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this user? This action cannot be undone.
-                          {userData.adminType !== 'none' && (
-                            <p className="mt-2 text-red-500">
-                              Warning: This user has {userData.adminType} privileges.
-                            </p>
-                          )}
-                        </AlertDialogDescription>
-                        <div className="flex justify-end gap-4 mt-4">
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteUserMutation.mutate(userData.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete User
-                          </AlertDialogAction>
-                        </div>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {userData.username !== "masteradmin123" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" className="gap-2">
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogTitle>Delete User</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {userData.username}? This action cannot be undone.
+                            {userData.adminType !== 'none' && (
+                              <p className="mt-2 text-red-500">
+                                Warning: This user has {userData.adminType.replace('_', ' ')} privileges.
+                              </p>
+                            )}
+                          </AlertDialogDescription>
+                          <div className="flex justify-end gap-4 mt-4">
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteUserMutation.mutate(userData.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete User
+                            </AlertDialogAction>
+                          </div>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 ))}
               </div>
