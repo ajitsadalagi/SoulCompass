@@ -187,7 +187,7 @@ export default function ProductListing() {
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number }>({
     lat: 20.5937,
     lng: 78.9629
-  }); // Default to India's coordinates
+  });
   const [listingMode, setListingMode] = useState<'seller' | 'buyer'>('seller');
 
   useEffect(() => {
@@ -260,8 +260,8 @@ export default function ProductListing() {
       condition: "new",
       category: "fruits",
       availabilityDate: new Date(),
-      latitude: 0,
-      longitude: 0,
+      latitude: currentLocation.lat,
+      longitude: currentLocation.lng,
       localAdminIds: [],
     }
   });
@@ -488,35 +488,37 @@ export default function ProductListing() {
         <CardHeader>
           <div className="flex flex-col space-y-4">
             <CardTitle>List a New Product</CardTitle>
-            <RadioGroup
-              defaultValue="seller"
-              value={listingMode}
-              onValueChange={(value) => handleModeChange(value as 'seller' | 'buyer')}
-              className="flex space-x-4"
-            >
-              <FormItem className="flex items-center space-x-2">
-                <FormControl>
-                  <RadioGroupItem
-                    value="seller"
-                    className="border-2 border-green-500 text-green-500"
-                  />
-                </FormControl>
-                <FormLabel className="text-green-700 font-medium">
-                  List as Seller
-                </FormLabel>
-              </FormItem>
-              <FormItem className="flex items-center space-x-2">
-                <FormControl>
-                  <RadioGroupItem
-                    value="buyer"
-                    className="border-2 border-red-500 text-red-500"
-                  />
-                </FormControl>
-                <FormLabel className="text-red-700 font-medium">
-                  List as Buyer
-                </FormLabel>
-              </FormItem>
-            </RadioGroup>
+            <Form {...form}>
+              <RadioGroup
+                defaultValue="seller"
+                value={listingMode}
+                onValueChange={(value) => handleModeChange(value as 'seller' | 'buyer')}
+                className="flex space-x-4"
+              >
+                <FormItem className="flex items-center space-x-2">
+                  <FormControl>
+                    <RadioGroupItem
+                      value="seller"
+                      className="border-2 border-green-500 text-green-500"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-green-700 font-medium">
+                    List as Seller
+                  </FormLabel>
+                </FormItem>
+                <FormItem className="flex items-center space-x-2">
+                  <FormControl>
+                    <RadioGroupItem
+                      value="buyer"
+                      className="border-2 border-red-500 text-red-500"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-red-700 font-medium">
+                    List as Buyer
+                  </FormLabel>
+                </FormItem>
+              </RadioGroup>
+            </Form>
           </div>
         </CardHeader>
         <CardContent>
@@ -813,8 +815,7 @@ export default function ProductListing() {
                         <UserIcon className="w-4 h-4" />
                         Local Admins:
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedItem.admins &&selectedItem.admins.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">{selectedItem.admins &&selectedItem.admins.length > 0 ? (
                           selectedItem.admins.map((admin) => (
                             <button
                               key={admin.id}
