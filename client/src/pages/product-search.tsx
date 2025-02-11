@@ -416,9 +416,11 @@ const ProductSearch = () => {
     try {
       const response = await apiRequest("POST", `/api/products/${productId}/contact`);
       const data = await response.json();
+      const product = products?.find(p => p.id === productId);
+      const isBuyerListing = product?.listingType === 'buyer';
 
       toast({
-        title: "Seller Contact Information",
+        title: isBuyerListing ? "Buyer Contact Information" : "Seller Contact Information",
         description: (
           <div className="mt-2 space-y-2">
             <p><strong>Name:</strong> {data.seller.name}</p>
