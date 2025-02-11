@@ -332,24 +332,28 @@ function formatPhoneNumber(phone: string): string {
   // Remove all non-digit characters first
   let cleaned = phone.replace(/\D/g, '');
 
-  // Remove leading 91 if present (common for Indian numbers)
+  // Remove any existing country code (both +91 and 91)
   if (cleaned.startsWith('91')) {
     cleaned = cleaned.substring(2);
   }
 
-  // Add +91 only if not already present
-  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+  // Ensure the number is bare without any country code
+  // Standard Indian mobile numbers are 10 digits
+  cleaned = cleaned.slice(-10);
+
+  return cleaned;
 }
 
 function getWhatsAppLink(phone: string): string {
   const formattedPhone = formatPhoneNumber(phone);
-  // Remove + for WhatsApp links
-  return `https://wa.me/${formattedPhone.replace('+', '')}`;
+  // Add 91 without + for WhatsApp links
+  return `https://wa.me/91${formattedPhone}`;
 }
 
 function getPhoneLink(phone: string): string {
   const formattedPhone = formatPhoneNumber(phone);
-  return `tel:${formattedPhone}`;
+  // Add +91 for regular phone calls
+  return `tel:+91${formattedPhone}`;
 }
 
 
@@ -768,7 +772,7 @@ const ProductSearch = () => {
 
                           <div className="border-t pt-2 mt-2">
                             <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
-                              <User className="h-4 w-4" />
+                              <User className="h4 w-4" />
                               Local Admins:
                             </p>
                             <div className="flex flex-wrap gap-2">
