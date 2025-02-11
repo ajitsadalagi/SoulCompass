@@ -128,7 +128,7 @@ export default function ProductSearchScreen({ navigation }) {
   };
 
   const renderProduct = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={getCardStyle(item)}
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
