@@ -76,7 +76,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    // First, remove any references in the product_admins table
+    await db.delete(productAdmins)
+      .where(eq(productAdmins.adminId, id));
+
+    // Then delete the user
+    await db.delete(users)
+      .where(eq(users.id, id));
   }
 
   async createProduct(productData: InsertProduct & { sellerId: number; localAdminIds: number[] }): Promise<Product> {
