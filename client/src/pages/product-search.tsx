@@ -329,7 +329,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function formatPhoneNumber(phone: string): string {
-  // Remove all non-digit characters first
+  // Remove all non-digit characters
   let cleaned = phone.replace(/\D/g, '');
 
   // Remove any existing country code (both +91 and 91)
@@ -838,38 +838,38 @@ const ProductSearch = () => {
                                 ) : (
                                   <span className="text-sm text-muted-foreground">No local admins assigned</span>
                                 )}
-                              </div>
                             </div>
-
-                            <Button
-                              className={`w-full mt-4 flex items-center justify-center gap-2 ${
-                                product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
-                              }`}
-                              onClick={() => handleContactSeller(product.id)}
-                            >
-                              <Phone className="h-4 w-4" />
-                              {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
-                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  }
-                </div>
-              ) : (
-                selectedCategory && (
-                  <p className="text-center text-muted-foreground">
-                    {isLocationSearchActive
-                      ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found within the selected area`
-                      : `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found`}
-                  </p>
-                )
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
 
-  export default ProductSearch;
+                          <Button
+                            className={`w-full mt-4 flex items-center justify-center gap-2 ${
+                              product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
+                            }`}
+                            onClick={() => handleContactSeller(product.id)}
+                          >
+                            <Phone className="h-4 w-4" />
+                            {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                }
+              </div>
+            ) : (
+              selectedCategory && (
+                <p className="text-center text-muted-foreground">
+                  {isLocationSearchActive
+                    ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found within the selected area`
+                    : `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found`}
+                </p>
+              )
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default ProductSearch;
