@@ -758,7 +758,7 @@ const ProductSearch = () => {
                                         : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
                                         ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
                                         : 'bg-primary/10 hover:bg-primary/20'
-                                    } transition-colors cursor-pointer`}
+                                    } transition-colorscursor-pointer`}
                                   >
                                     {admin.username}
                                   </button>

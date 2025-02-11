@@ -45,7 +45,7 @@ function sortProductsByAdminStatus(products: Product[]): Product[] {
   });
 }
 
-// Update the card style function to handle all cases
+// Update the card style function to properly check admin status
 function getCardStyle(product: Product): string {
   // Check for admin with most privilege first
   const admins = product.admins || [];
