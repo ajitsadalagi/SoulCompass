@@ -12,6 +12,8 @@ interface CartItem {
   category: string;
   city: string;
   state: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface CartContextType {
@@ -95,6 +97,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       category: product.category,
       city: product.city,
       state: product.state,
+      latitude: product.latitude,
+      longitude: product.longitude,
     };
     addItem(cartItem);
   };

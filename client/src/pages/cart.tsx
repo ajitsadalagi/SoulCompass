@@ -9,7 +9,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
 
 // Add helper functions for contacts and maps
-function getGoogleMapsDirectionsUrl(city: string, state: string) {
+function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
+  if (lat && lng) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
 }
 
@@ -145,7 +148,12 @@ export default function CartPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(getGoogleMapsDirectionsUrl(item.city, item.state), '_blank')}
+                      onClick={() => window.open(getGoogleMapsDirectionsUrl(
+                        item.latitude,
+                        item.longitude,
+                        item.city,
+                        item.state
+                      ), '_blank')}
                       className="flex items-center gap-2"
                     >
                       <MapPin className="w-4 h-4" />
