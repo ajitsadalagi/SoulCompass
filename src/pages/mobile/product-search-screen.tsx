@@ -18,6 +18,11 @@ const sortProductsByAdminStatus = (products) => {
   });
 };
 
+const getProductNameStyle = (product) => {
+  if (!product.listingType) return styles.productName;
+  return product.listingType === 'buyer' ? styles.buyerProductName : styles.sellerProductName;
+};
+
 export default function ProductSearchScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState([]);
@@ -118,7 +123,7 @@ export default function ProductSearchScreen({ navigation }) {
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={getProductNameStyle(item)}>{item.name}</Text>
         <Text style={styles.productCategory}>{item.category}</Text>
         <Text style={styles.productPrice}>${item.targetPrice}</Text>
         <Text style={styles.sellerInfo}>
@@ -225,7 +230,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
-    color: '#16a34a',
+    color: '#16a34a', // Default color
+  },
+  buyerProductName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#dc2626', // Red-600
+  },
+  sellerProductName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#16a34a', // Green-600
   },
   productCategory: {
     fontSize: 14,

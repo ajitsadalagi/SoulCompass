@@ -49,6 +49,10 @@ function getCardStyle(product: Product): string {
   return '';
 }
 
+function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
+  return listingType === 'buyer' ? 'text-red-600' : 'text-green-600';
+}
+
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -214,7 +218,9 @@ export default function HomePage() {
           <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
             <CardHeader className="flex flex-row items-center gap-4">
               <span className="text-4xl">{getProductEmoji(product.name, product.category)}</span>
-              <CardTitle className="product-name">{product.name}</CardTitle>
+              <CardTitle className={`product-name ${getProductNameStyle(product.listingType)}`}>
+                {product.name}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
