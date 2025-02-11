@@ -82,7 +82,7 @@ export function registerRoutes(app: Express): Server {
   // Add new route to fetch all admins (for master admin)
   app.get("/api/users/admins", requireAuth, async (req, res) => {
     try {
-      if (!req.user?.roles.includes('master_admin')) {
+      if (req.user?.adminType !== "master_admin") {
         return res.status(403).json({
           message: "Only master admin can access this route",
           error: "Insufficient permissions"
