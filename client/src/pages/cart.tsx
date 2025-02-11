@@ -2,9 +2,32 @@ import { useCart } from "@/lib/cart-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, MapPin, Phone, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { getCategoryEmoji } from "../../../shared/helpers";
+
+// Add helper functions for contacts and maps
+function getGoogleMapsDirectionsUrl(city: string, state: string) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
+}
+
+function formatPhoneNumber(phone: string): string {
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+}
+
+function getWhatsAppLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
+  return `https://wa.me/${cleanedPhone}`;
+}
+
+function getPhoneLink(phone: string): string {
+  const formattedPhone = formatPhoneNumber(phone);
+  return `tel:${formattedPhone}`;
+}
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice } = useCart();
@@ -16,6 +39,52 @@ export default function CartPage() {
       title: "Checkout",
       description: "This is a demo. In a real app, this would redirect to payment.",
     });
+  };
+
+  const handleContactSeller = async (sellerId: number) => {
+    try {
+      const response = await apiRequest("GET", `/api/users/${sellerId}`);
+      const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.mobileNumber);
+
+      toast({
+        title: "Seller Contact Information",
+        description: (
+          <div className="mt-2 space-y-2">
+            <p><strong>Name:</strong> {data.name}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <Phone className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        ),
+        duration: 10000,
+      });
+    } catch (error) {
+      console.error('Error fetching seller details:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch seller details",
+        variant: "destructive",
+      });
+    }
   };
 
   if (items.length === 0) {
@@ -46,12 +115,28 @@ export default function CartPage() {
           {items.map((item) => (
             <Card key={item.id} className="p-4">
               <div className="flex items-center gap-4">
-                <div className="text-4xl">{item.image}</div>
+                <div className="text-4xl">
+                  {getCategoryEmoji(item.category)}
+                </div>
                 <div className="flex-1">
                   <h3 className="font-medium">{item.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Quality: {item.quality} • Category: {item.category}
-                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2">
+                    <p>Quality: {item.quality}</p>
+                    <p>Category: {item.category}</p>
+                    <p>Price per unit: ₹{item.price.toFixed(2)}</p>
+                    <p>Subtotal: ₹{(item.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleContactSeller(item.sellerId)}
+                      className="flex items-center gap-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      Contact Seller
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
