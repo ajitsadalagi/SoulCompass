@@ -18,13 +18,13 @@ export default function UserManagementPage() {
 
   // Fetch all users
   const { data: allUsers, isLoading } = useQuery<User[]>({
-    queryKey: ["/api/users/all"],
+    queryKey: ["/api/users/admins"],  // Changed from /api/users/all to /api/users/admins
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/users/all");
+      const res = await apiRequest("GET", "/api/users/admins");
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
-    enabled: !!user && user.username === "masteradmin123" && user.adminType === "master_admin",
+    enabled: !!user && user.adminType === "master_admin",
   });
 
   // Delete user mutation
@@ -37,7 +37,7 @@ export default function UserManagementPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/admins"] });
       toast({
         title: "User deleted",
         description: "The user has been deleted successfully.",
@@ -52,8 +52,8 @@ export default function UserManagementPage() {
     },
   });
 
-  // Redirect if not masteradmin123
-  if (!user || user.username !== "masteradmin123" || user.adminType !== "master_admin") {
+  // Redirect if not master admin
+  if (!user || user.adminType !== "master_admin") {
     setLocation("/");
     return null;
   }
