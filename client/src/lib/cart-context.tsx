@@ -50,7 +50,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       toast({
         title: "Added to cart",
-        description: `${newItem.name} has been added to your cart.`,
+        description: `${newItem.name} has been added to your cart`,
       });
 
       return [...currentItems, newItem];
@@ -86,7 +86,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const cartItem: CartItem = {
       id: product.id,
       name: product.name,
-      price: product.targetPrice || 0,
+      price: typeof product.targetPrice === 'string' ? parseFloat(product.targetPrice) : (product.targetPrice || 0),
       quantity: 1,
       sellerId: product.sellerId,
       quality: product.quality,
