@@ -611,10 +611,10 @@ export function registerRoutes(app: Express): Server {
 
       // Prevent deletion of master admin account
       const targetUser = await storage.getUser(targetUserId);
-      if (targetUser?.adminType === "master_admin") {
-        console.log("Attempted to delete master admin account:", targetUserId);
+      if (targetUser?.username === "masteradmin123") {
+        console.log("Attempted to delete masteradmin123 account:", targetUserId);
         return res.status(403).json({
-          message: "Master admin account cannot be deleted",
+          message: "The masteradmin123 account cannot be deleted",
           code: "MASTER_ADMIN_DELETION_FORBIDDEN"
         });
       }
