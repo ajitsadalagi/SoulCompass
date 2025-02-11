@@ -10,6 +10,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +19,7 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, Redirect } from "wouter";
-import { Apple, Carrot, Milk, Package, MapPin, Clock, UserIcon } from "lucide-react";
+import { Package, MapPin, Clock, UserIcon } from "lucide-react";
 import { useState, useEffect } from 'react';
 import { Map } from "@/components/ui/map";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,7 +39,6 @@ interface LocalAdmin {
 type ProductCategory = {
   id: "fruits" | "vegetables" | "dairy" | "other";
   label: string;
-  icon: React.ComponentType;
   items: ProductItem[];
 };
 
@@ -53,7 +53,6 @@ const productCategories: ProductCategory[] = [
   {
     id: "fruits",
     label: "Fruits",
-    icon: Apple,
     items: [
       { id: "apple", name: "Apple", image: "🍎" },
       { id: "banana", name: "Banana", image: "🍌" },
@@ -85,7 +84,6 @@ const productCategories: ProductCategory[] = [
   {
     id: "vegetables",
     label: "Vegetables",
-    icon: Carrot,
     items: [
       { id: "tomato", name: "Tomato", image: "🍅" },
       { id: "carrot", name: "Carrot", image: "🥕" },
@@ -117,7 +115,6 @@ const productCategories: ProductCategory[] = [
   {
     id: "dairy",
     label: "Dairy",
-    icon: Milk,
     items: [
       { id: "milk", name: "Milk", image: "🥛" },
       { id: "cheese", name: "Cheese", image: "🧀" },
@@ -149,7 +146,6 @@ const productCategories: ProductCategory[] = [
   {
     id: "other",
     label: "Other",
-    icon: Package,
     items: [
       { id: "rice", name: "Rice", image: "🍚" },
       { id: "wheat", name: "Wheat", image: "🌾" },
@@ -180,7 +176,6 @@ const productCategories: ProductCategory[] = [
   }
 ];
 
-
 export default function ProductListing() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -193,6 +188,7 @@ export default function ProductListing() {
     lat: 20.5937,
     lng: 78.9629
   }); // Default to India's coordinates
+  const [listingMode, setListingMode] = useState<'seller' | 'buyer'>('seller');
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -203,16 +199,42 @@ export default function ProductListing() {
             lng: position.coords.longitude
           };
           setCurrentLocation(newLocation);
+
+          // Update form values with the new coordinates
+          form.setValue("latitude", newLocation.lat, { shouldValidate: true });
+          form.setValue("longitude", newLocation.lng, { shouldValidate: true });
         },
         (error) => {
           console.error('Geolocation error:', error);
+          // More user-friendly error messages based on error type
+          const errorMessages = {
+            1: "Location access was denied. You can still select your location manually on the map.",
+            2: "Location information is unavailable. Please select your location on the map.",
+            3: "Location request timed out. Please select your location manually."
+          };
+
           toast({
-            title: "Location Error",
-            description: "Could not get your current location. Using default location.",
-            variant: "destructive",
+            title: "Location Notice",
+            description: errorMessages[error.code] || "Could not get your current location. Please select manually.",
+            variant: "default",
           });
+
+          // Keep the default India location
+          form.setValue("latitude", currentLocation.lat, { shouldValidate: true });
+          form.setValue("longitude", currentLocation.lng, { shouldValidate: true });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
         }
       );
+    } else {
+      toast({
+        title: "Location Notice",
+        description: "Geolocation is not supported in your browser. Please select your location manually on the map.",
+        variant: "default",
+      });
     }
   }, []);
 
@@ -439,17 +461,27 @@ export default function ProductListing() {
     </div>
   );
 
+  // Handle mode change
+  const handleModeChange = (value: 'seller' | 'buyer') => {
+    setListingMode(value);
+    if (value === 'buyer') {
+      setLocation('/buyer-listing');
+    }
+  };
 
   if (!user) {
     return <Redirect to="/auth" />;
   }
 
-  if (!user.roles.includes("seller")) {
+  const canList = (listingMode === 'seller' && user.roles.includes("seller")) ||
+    (listingMode === 'buyer' && user.roles.includes("buyer"));
+
+  if (!canList) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="p-6">
-            <p>Only sellers can list products</p>
+            <p>You don't have permission to {listingMode === 'seller' ? 'sell products' : 'post buy requests'}</p>
           </CardContent>
         </Card>
       </div>
@@ -460,7 +492,38 @@ export default function ProductListing() {
     <div className="p-8">
       <Card className="max-w-4xl mx-auto table-glow">
         <CardHeader>
-          <CardTitle>List a New Product</CardTitle>
+          <div className="flex flex-col space-y-4">
+            <CardTitle>List a New Product</CardTitle>
+            <RadioGroup
+              defaultValue="seller"
+              value={listingMode}
+              onValueChange={(value) => handleModeChange(value as 'seller' | 'buyer')}
+              className="flex space-x-4"
+            >
+              <FormItem className="flex items-center space-x-2">
+                <FormControl>
+                  <RadioGroupItem
+                    value="seller"
+                    className="border-2 border-green-500 text-green-500"
+                  />
+                </FormControl>
+                <FormLabel className="text-green-700 font-medium">
+                  List as Seller
+                </FormLabel>
+              </FormItem>
+              <FormItem className="flex items-center space-x-2">
+                <FormControl>
+                  <RadioGroupItem
+                    value="buyer"
+                    className="border-2 border-red-500 text-red-500"
+                  />
+                </FormControl>
+                <FormLabel className="text-red-700 font-medium">
+                  List as Buyer
+                </FormLabel>
+              </FormItem>
+            </RadioGroup>
+          </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -475,7 +538,7 @@ export default function ProductListing() {
                       selectedCategory?.id === category.id
                         ? "border-primary bg-primary/10"
                         : "border-border hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-4xl">{getCategoryEmoji(category.id)}</span>
@@ -496,7 +559,7 @@ export default function ProductListing() {
                         selectedItem?.id === item.id
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-col items-center gap-2">
                         <span className="text-4xl">{getProductEmoji(item.name, selectedCategory.id)}</span>
@@ -552,7 +615,7 @@ export default function ProductListing() {
                                   field.value === quality
                                     ? "border-primary bg-primary/10"
                                     : "border-border hover:border-primary/50"
-                                }`}
+                                  }`}
                               >
                                 <p className="text-center font-medium">{quality}</p>
                               </button>
@@ -757,7 +820,7 @@ export default function ProductListing() {
                         Local Admins:
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {selectedItem.admins && selectedItem.admins.length > 0 ? (
+                        {                        {selectedItem.admins && selectedItem.admins.length > 0 ? (
                           selectedItem.admins.map((admin) => (
                             <button
                               key={admin.id}
@@ -776,8 +839,7 @@ export default function ProductListing() {
 
                   {selectedItem && renderSelectedAdmins()}
 
-                  <Button
-                    type="submit"
+                  <Button                    type="submit"
                     className="w-full"
                     disabled={createProductMutation.isPending}
                   >

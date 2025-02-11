@@ -68,16 +68,42 @@ export default function BuyerListing() {
             lng: position.coords.longitude
           };
           setCurrentLocation(newLocation);
+
+          // Update form values with the new coordinates
+          form.setValue("latitude", newLocation.lat, { shouldValidate: true });
+          form.setValue("longitude", newLocation.lng, { shouldValidate: true });
         },
         (error) => {
           console.error('Geolocation error:', error);
+          // More user-friendly error messages based on error type
+          const errorMessages = {
+            1: "Location access was denied. You can still select your location manually on the map.",
+            2: "Location information is unavailable. Please select your location on the map.",
+            3: "Location request timed out. Please select your location manually."
+          };
+
           toast({
-            title: "Location Error",
-            description: "Could not get your current location. Using default location.",
-            variant: "destructive",
+            title: "Location Notice",
+            description: errorMessages[error.code] || "Could not get your current location. Please select manually.",
+            variant: "default",
           });
+
+          // Keep the default India location
+          form.setValue("latitude", currentLocation.lat, { shouldValidate: true });
+          form.setValue("longitude", currentLocation.lng, { shouldValidate: true });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
         }
       );
+    } else {
+      toast({
+        title: "Location Notice",
+        description: "Geolocation is not supported in your browser. Please select your location manually on the map.",
+        variant: "default",
+      });
     }
   }, []);
 
@@ -181,7 +207,7 @@ export default function BuyerListing() {
       const newAdmins = prev.includes(adminId)
         ? prev.filter(id => id !== adminId)
         : [...prev, adminId];
-      
+
       form.setValue("localAdminIds", newAdmins, { shouldValidate: true });
       return newAdmins;
     });
