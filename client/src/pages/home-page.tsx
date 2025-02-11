@@ -160,6 +160,32 @@ export default function HomePage() {
     }
   };
 
+  // Add function to handle admin contact info display
+  const handleAdminClick = async (adminId: number) => {
+    try {
+      const response = await apiRequest("GET", `/api/users/admin/${adminId}`);
+      const data = await response.json();
+      toast({
+        title: "Local Admin Contact Information",
+        description: (
+          <div className="mt-2 space-y-2">
+            <p><strong>Name:</strong> {data.name || data.username}</p>
+            <p><strong>Mobile:</strong> {data.mobileNumber}</p>
+            <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+          </div>
+        ),
+        duration: 10000,
+      });
+    } catch (error) {
+      console.error('Error fetching admin details:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch admin details",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -264,18 +290,19 @@ export default function HomePage() {
                   <div className="flex flex-wrap gap-2">
                     {product.admins && product.admins.length > 0 ? (
                       product.admins.map((admin) => (
-                        <span
+                        <button
                           key={admin.id}
-                          className={`username inline-flex items-center px-2 py-1 rounded-full ${
+                          onClick={() => handleAdminClick(admin.id)}
+                          className={`username inline-flex items-center px-2 py-1 rounded-full cursor-pointer transition-colors ${
                             admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
-                              ? `bg-violet-100 ${getTextColorClass(product.listingType)}`
+                              ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
                               : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
-                              ? `bg-purple-100 ${getTextColorClass(product.listingType)}`
-                              : 'bg-primary/10'
+                              ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
+                              : 'bg-primary/10 hover:bg-primary/20'
                           }`}
                         >
                           {admin.username}
-                        </span>
+                        </button>
                       ))
                     ) : (
                       <span className="text-sm text-muted-foreground">
