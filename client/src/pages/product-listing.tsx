@@ -204,10 +204,9 @@ export default function ProductListing() {
           form.setValue("latitude", newLocation.lat, { shouldValidate: true });
           form.setValue("longitude", newLocation.lng, { shouldValidate: true });
         },
-        (error) => {
+        (error: GeolocationPositionError) => {
           console.error('Geolocation error:', error);
-          // More user-friendly error messages based on error type
-          const errorMessages = {
+          const errorMessages: Record<number, string> = {
             1: "Location access was denied. You can still select your location manually on the map.",
             2: "Location information is unavailable. Please select your location on the map.",
             3: "Location request timed out. Please select your location manually."
@@ -238,18 +237,11 @@ export default function ProductListing() {
     }
   }, []);
 
-  const { data: localAdmins, isError, error } = useQuery<LocalAdmin[]>({
+  // Fix the useQuery typing
+  const { data: localAdmins } = useQuery<LocalAdmin[]>({
     queryKey: ["/api/users/local-admins"],
     retry: 2,
-    staleTime: 300000, // 5 minutes
-    onError: (error: Error) => {
-      console.error('Error fetching local admins:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load local admins. Please try again.",
-        variant: "destructive",
-      });
-    },
+    staleTime: 300000,
   });
 
   console.log('Local admins data:', localAdmins);
@@ -448,15 +440,17 @@ export default function ProductListing() {
         Selected Local Admins:
       </p>
       <div className="flex flex-wrap gap-2">
-        {localAdmins?.filter(admin => selectedAdmins.includes(admin.id)).map((admin) => (
-          <button
-            key={admin.id}
-            onClick={() => handleContactAdmin(admin.id)}
-            className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors cursor-pointer"
-          >
-            {admin.name || admin.username}
-          </button>
-        ))}
+        {localAdmins && localAdmins
+          .filter(admin => selectedAdmins.includes(admin.id))
+          .map((admin) => (
+            <button
+              key={admin.id}
+              onClick={() => handleContactAdmin(admin.id)}
+              className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors cursor-pointer"
+            >
+              {admin.name || admin.username}
+            </button>
+          ))}
       </div>
     </div>
   );
@@ -820,18 +814,18 @@ export default function ProductListing() {
                         Local Admins:
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {                        {selectedItem.admins && selectedItem.admins.length > 0 ? (
+                        {selectedItem.admins &&selectedItem.admins.length > 0 ? (
                           selectedItem.admins.map((admin) => (
                             <button
                               key={admin.id}
                               onClick={() => handleContactAdmin(admin.id)}
-                              className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
+                              className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors cursor-pointer"
                             >
-                              {admin.name || admin.username}
+                              {admin.username}
                             </button>
                           ))
                         ) : (
-                          <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                          <p className="text-sm text-muted-foreground">No admins assigned</p>
                         )}
                       </div>
                     </div>
@@ -839,11 +833,12 @@ export default function ProductListing() {
 
                   {selectedItem && renderSelectedAdmins()}
 
-                  <Button                    type="submit"
+                  <Button
+                    type="submit"
                     className="w-full"
                     disabled={createProductMutation.isPending}
                   >
-                    {createProductMutation.isPending ? "Creating..." : "List Product"}
+                    {createProductMutation.isPending ? "Creating..." : "Create Product"}
                   </Button>
                 </>
               )}

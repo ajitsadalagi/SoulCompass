@@ -73,10 +73,9 @@ export default function BuyerListing() {
           form.setValue("latitude", newLocation.lat, { shouldValidate: true });
           form.setValue("longitude", newLocation.lng, { shouldValidate: true });
         },
-        (error) => {
+        (error: GeolocationPositionError) => {
           console.error('Geolocation error:', error);
-          // More user-friendly error messages based on error type
-          const errorMessages = {
+          const errorMessages: Record<number, string> = {
             1: "Location access was denied. You can still select your location manually on the map.",
             2: "Location information is unavailable. Please select your location on the map.",
             3: "Location request timed out. Please select your location manually."
@@ -238,6 +237,15 @@ export default function BuyerListing() {
       });
     }
   };
+
+  const filteredAdmins = localAdmins 
+    ? localAdmins.filter(admin => {
+        const searchLower = searchQuery.toLowerCase();
+        const nameMatch = (admin.name || admin.username).toLowerCase().includes(searchLower);
+        const locationMatch = admin.location?.toLowerCase().includes(searchLower) ?? false;
+        return nameMatch || locationMatch;
+      })
+    : [];
 
   if (!user) {
     return <Redirect to="/auth" />;
@@ -491,12 +499,7 @@ export default function BuyerListing() {
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {localAdmins?.filter(admin => {
-                            const searchLower = searchQuery.toLowerCase();
-                            const nameMatch = (admin.name || admin.username).toLowerCase().includes(searchLower);
-                            const locationMatch = admin.location?.toLowerCase().includes(searchLower) ?? false;
-                            return nameMatch || locationMatch;
-                          }).map((admin) => (
+                          {filteredAdmins.map((admin) => (
                             <div
                               key={admin.id}
                               className="flex items-center space-x-2 p-4 rounded-lg border"
