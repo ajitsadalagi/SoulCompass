@@ -2,6 +2,13 @@ import { Apple, Carrot, Milk, Package, Phone, Clock, Search as SearchIcon, X, Us
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import { useState, useEffect } from 'react';
@@ -10,7 +17,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FormControl, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 // Add the helper function for Google Maps directions URL
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -307,6 +315,12 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // Returns distance in meters
 }
 
+const filterSchema = z.object({
+  listingType: z.enum(['seller', 'buyer'])
+});
+
+type FilterValues = z.infer<typeof filterSchema>;
+
 const ProductSearch = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -323,6 +337,12 @@ const ProductSearch = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  const form = useForm<FilterValues>({
+    defaultValues: {
+      listingType: 'seller'
+    }
+  });
+
   useEffect(() => {
     const getLocation = async () => {
       if (!("geolocation" in navigator)) {
@@ -332,14 +352,12 @@ const ProductSearch = () => {
       }
 
       try {
-        // First, check if we have permission
         const permission = await navigator.permissions.query({ name: 'geolocation' });
 
         if (permission.state === 'denied') {
           throw new Error('Location permission denied. Please enable location services in your browser settings.');
         }
 
-        // Get position with a timeout
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
             resolve,
@@ -358,7 +376,6 @@ const ProductSearch = () => {
         };
 
         setCurrentLocation(location);
-        // Set default 2-mile radius circle (3218.69 meters)
         setSearchCircle({
           center: location,
           radius: 3218.69,
@@ -372,7 +389,6 @@ const ProductSearch = () => {
             ? error.message
             : "Unable to get your location. Please check your browser settings."
         );
-        // Set a default location (this could be based on IP geolocation in a production app)
         const defaultLocation = { lat: 37.7749, lng: -122.4194 }; // San Francisco
         setCurrentLocation(defaultLocation);
         setSearchCircle({
@@ -392,7 +408,6 @@ const ProductSearch = () => {
     queryKey: ["/api/products"],
   });
 
-  // Update handleCircleComplete to log the circle details
   const handleCircleComplete = (center: google.maps.LatLng, radius: number) => {
     console.log('Search circle updated:', {
       center: { lat: center.lat(), lng: center.lng() },
@@ -444,21 +459,16 @@ const ProductSearch = () => {
     }
   };
 
-  // Update filteredProducts logic with strict validation and listing type filter
   const filteredProducts = products?.filter(product => {
-    // Category filter
     if (selectedCategory && product.category.toLowerCase() !== selectedCategory.id) {
       return false;
     }
 
-    // Item filter
     if (selectedItem && product.name.toLowerCase() !== selectedItem.name.toLowerCase()) {
       return false;
     }
 
-    // Location filter with strict validation
     if (isLocationSearchActive && searchCircle) {
-      // Verify product has valid coordinates
       if (!product.latitude || !product.longitude) {
         console.log('Product missing coordinates:', product.name);
         return false;
@@ -491,6 +501,11 @@ const ProductSearch = () => {
     return true;
   });
 
+  const handleModeChange = (value: 'seller' | 'buyer') => {
+    setListingTypeFilter(value);
+    form.setValue('listingType', value);
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -509,35 +524,48 @@ const ProductSearch = () => {
         <CardHeader>
           <div className="flex flex-col space-y-4">
             <CardTitle>Search Products</CardTitle>
-            <RadioGroup
-              defaultValue="seller"
-              value={listingTypeFilter}
-              onValueChange={(value) => setListingTypeFilter(value as 'seller' | 'buyer')}
-              className="flex space-x-4"
-            >
-              <FormItem className="flex items-center space-x-2">
-                <FormControl>
-                  <RadioGroupItem
-                    value="seller"
-                    className="border-2 border-green-500 text-green-500"
-                  />
-                </FormControl>
-                <FormLabel className="text-green-700 font-medium">
-                  Seller Listings
-                </FormLabel>
-              </FormItem>
-              <FormItem className="flex items-center space-x-2">
-                <FormControl>
-                  <RadioGroupItem
-                    value="buyer"
-                    className="border-2 border-red-500 text-red-500"
-                  />
-                </FormControl>
-                <FormLabel className="text-red-700 font-medium">
-                  Buyer Requests
-                </FormLabel>
-              </FormItem>
-            </RadioGroup>
+            <Form {...form}>
+              <form className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="listingType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <RadioGroup
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          className="flex space-x-4"
+                        >
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem
+                                value="seller"
+                                className="border-2 border-green-500 text-green-500"
+                              />
+                            </FormControl>
+                            <FormLabel className="text-green-700 font-medium">
+                              Seller Listings
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem
+                                value="buyer"
+                                className="border-2 border-red-500 text-red-500"
+                              />
+                            </FormControl>
+                            <FormLabel className="text-red-700 font-medium">
+                              Buyer Requests
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
             {locationError && (
               <div className="text-sm text-destructive mt-2">
                 {locationError}
@@ -547,7 +575,6 @@ const ProductSearch = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-8">
-            {/* Category Selection */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {productCategories.map((category) => (
                 <button
@@ -570,7 +597,6 @@ const ProductSearch = () => {
               ))}
             </div>
 
-            {/* Product Items Selection */}
             {selectedCategory && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {selectedCategory.items.map((item) => (
@@ -594,7 +620,6 @@ const ProductSearch = () => {
               </div>
             )}
 
-            {/* Map View */}
             <div>
               <div className="w-full h-[400px] relative rounded-lg border overflow-hidden">
                 <Map
@@ -625,7 +650,6 @@ const ProductSearch = () => {
               </div>
             </div>
 
-            {/* Product Results */}
             {filteredProducts && filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredProducts
@@ -665,7 +689,6 @@ const ProductSearch = () => {
                             <span>Listed {format(new Date(product.createdAt), 'PPp')}</span>
                           </div>
 
-                          {/* Local Admins Section */}
                           <div className="border-t pt-2 mt-2">
                             <p className="font-medium mb-1 flex items-center gap-2">
                               <User className="h-4 w-4" />
