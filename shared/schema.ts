@@ -6,7 +6,9 @@ import { z } from "zod";
 const TABLE_NAMES = {
   USERS: "users",
   PRODUCTS: "products",
-  PRODUCT_ADMINS: "product_admins"
+  PRODUCT_ADMINS: "product_admins",
+  BUYER_REQUESTS: "buyer_requests",
+  BUYER_REQUEST_ADMINS: "buyer_request_admins"
 } as const;
 
 // Define admin roles as const for type safety
@@ -80,6 +82,32 @@ export const productAdmins = pgTable(TABLE_NAMES.PRODUCT_ADMINS, {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Add new buyer requests table
+export const buyerRequests = pgTable(TABLE_NAMES.BUYER_REQUESTS, {
+  id: serial("id").primaryKey(),
+  buyerId: integer("buyer_id").notNull().references(() => users.id),
+  name: text("name").notNull(),
+  quantity: integer("quantity").notNull(),
+  targetPrice: decimal("target_price", { precision: 10, scale: 2 }),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  category: text("category", { enum: ["fruits", "vegetables", "dairy", "other"] }).notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["open", "fulfilled", "cancelled"] }).notNull().default("open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Add junction table for buyer request-admin associations
+export const buyerRequestAdmins = pgTable(TABLE_NAMES.BUYER_REQUEST_ADMINS, {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => buyerRequests.id),
+  adminId: integer("admin_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users, {
   roles: z.array(z.enum(["buyer", "seller", "local_admin", "super_admin", "master_admin"])).default(["buyer"]),
   adminType: z.enum(Object.values(ADMIN_ROLES) as [string, ...string[]]).default(ADMIN_ROLES.NONE),
@@ -142,6 +170,32 @@ export const insertProductSchema = createInsertSchema(products, {
 
 export const insertProductAdminSchema = createInsertSchema(productAdmins);
 
+// Add buyer request schema
+export const insertBuyerRequestSchema = createInsertSchema(buyerRequests, {
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  targetPrice: z.number().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  category: z.enum(["fruits", "vegetables", "dairy", "other"]),
+  description: z.string().optional(),
+}).extend({
+  localAdminIds: z.array(z.number()).optional(),
+}).pick({
+  name: true,
+  quantity: true,
+  targetPrice: true,
+  city: true,
+  state: true,
+  category: true,
+  description: true,
+  latitude: true,
+  longitude: true,
+  localAdminIds: true,
+});
+
+// Add buyer request admin schema
+export const insertBuyerRequestAdminSchema = createInsertSchema(buyerRequestAdmins);
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -151,3 +205,11 @@ export type Product = typeof products.$inferSelect & {
 export type ProductAdmin = typeof productAdmins.$inferSelect;
 export type InsertProductAdmin = z.infer<typeof insertProductAdminSchema>;
 export type SelectUser = z.infer<typeof insertUserSchema>;
+
+// Export types
+export type InsertBuyerRequest = z.infer<typeof insertBuyerRequestSchema>;
+export type BuyerRequest = typeof buyerRequests.$inferSelect & {
+  admins?: User[];
+};
+export type BuyerRequestAdmin = typeof buyerRequestAdmins.$inferSelect;
+export type InsertBuyerRequestAdmin = z.infer<typeof insertBuyerRequestAdminSchema>;
