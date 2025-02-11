@@ -334,22 +334,19 @@ type FilterValues = z.infer<typeof filterSchema>;
 
 // Add the card style function to match home page
 function getCardStyle(product: Product): string {
-  const admin = product.admins?.[0];
-  if (!admin) {
-    // Regular user listing
-    return product.listingType === 'buyer'
-      ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
-      : 'border-green-500 border-2 shadow-green-100 shadow-lg';
-  }
+  // Check for admin with most privilege first
+  const admins = product.admins || [];
+  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
+  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
 
-  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
+  if (superAdmin) {
     return 'border-violet-500 border-2 shadow-violet-100 shadow-lg';
   }
-  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+  if (localAdmin) {
     return 'border-purple-500 border-2 shadow-purple-100 shadow-lg';
   }
 
-  // Default case for regular users
+  // Regular user listing
   return product.listingType === 'buyer'
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
