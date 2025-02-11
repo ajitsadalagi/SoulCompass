@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Trash2, UserCog } from "lucide-react";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ export default function UserManagementPage() {
   const { data: allUsers, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users/all"],
     queryFn: async () => {
-      const res = await fetch("/api/users/all");
+      const res = await apiRequest("GET", "/api/users/all");
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
@@ -30,10 +30,7 @@ export default function UserManagementPage() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const res = await fetch(`/api/user?userId=${userId}`, {
-        method: "DELETE",
-        credentials: 'include',
-      });
+      const res = await apiRequest("DELETE", `/api/user?userId=${userId}`);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: "Failed to delete user" }));
         throw new Error(errorData.message || "Failed to delete user");
