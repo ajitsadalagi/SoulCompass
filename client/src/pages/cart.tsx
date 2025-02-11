@@ -151,12 +151,15 @@ export default function CartPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(getGoogleMapsDirectionsUrl(
-                        item.latitude,
-                        item.longitude,
-                        item.city,
-                        item.state
-                      ), '_blank')}
+                      onClick={() => {
+                        const url = getGoogleMapsDirectionsUrl(
+                          item.latitude || null,
+                          item.longitude || null,
+                          item.city,
+                          item.state
+                        );
+                        window.open(url, '_blank');
+                      }}
                       className="flex items-center gap-2"
                     >
                       <MapPin className="w-4 h-4" />
