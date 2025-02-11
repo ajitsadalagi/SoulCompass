@@ -29,6 +29,12 @@ function getPhoneLink(phone: string): string {
   return `tel:${formattedPhone}`;
 }
 
+// Add helper function to safely format price
+function formatPrice(price: number | string): string {
+  const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+  return isNaN(numericPrice) ? '0.00' : numericPrice.toFixed(2);
+}
+
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice } = useCart();
   const { toast } = useToast();
@@ -123,8 +129,8 @@ export default function CartPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2">
                     <p>Quality: {item.quality}</p>
                     <p>Category: {item.category}</p>
-                    <p>Price per unit: ₹{item.price.toFixed(2)}</p>
-                    <p>Subtotal: ₹{(item.price * item.quantity).toFixed(2)}</p>
+                    <p>Price per unit: ₹{formatPrice(item.price)}</p>
+                    <p>Subtotal: ₹{formatPrice(Number(item.price) * item.quantity)}</p>
                   </div>
                   <div className="flex gap-2 mt-2">
                     <Button
@@ -161,7 +167,7 @@ export default function CartPage() {
                   </Button>
                 </div>
                 <div className="w-24 text-right">
-                  ₹{(item.price * item.quantity).toFixed(2)}
+                  ₹{formatPrice(Number(item.price) * item.quantity)}
                 </div>
                 <Button
                   variant="ghost"
@@ -177,7 +183,7 @@ export default function CartPage() {
 
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-lg font-medium">Total: ₹{totalPrice.toFixed(2)}</p>
+            <p className="text-lg font-medium">Total: ₹{formatPrice(totalPrice)}</p>
             <p className="text-sm text-muted-foreground">
               Total Items: {items.length}
             </p>
