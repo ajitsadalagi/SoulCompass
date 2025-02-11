@@ -6,7 +6,7 @@ import { Minus, Plus, Trash2, MapPin, Phone, MessageCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { getCategoryEmoji } from "../../../shared/helpers";
+import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
 
 // Add helper functions for contacts and maps
 function getGoogleMapsDirectionsUrl(city: string, state: string) {
@@ -122,7 +122,7 @@ export default function CartPage() {
             <Card key={item.id} className="p-4">
               <div className="flex items-center gap-4">
                 <div className="text-4xl">
-                  {getCategoryEmoji(item.category)}
+                  {getCategoryEmoji(item.category)} → {getProductEmoji(item.name, item.category)}
                 </div>
                 <div className="flex-1">
                   <h3 className="font-medium">{item.name}</h3>
