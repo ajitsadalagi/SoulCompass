@@ -74,15 +74,17 @@ function getCardStyle(product: Product): string {
 
 // Add helper functions after existing helper functions
 function formatPhoneNumber(phone: string): string {
-  // Remove any non-digit characters
-  const cleaned = phone.replace(/\D/g, '');
-  // Add country code if not present
+  // Remove any non-digit characters except +
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Only add country code if not already present
   return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
 }
 
 function getWhatsAppLink(phone: string): string {
   const formattedPhone = formatPhoneNumber(phone);
-  return `https://wa.me/${formattedPhone}`;
+  // Remove any remaining non-digit characters for WhatsApp
+  const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
+  return `https://wa.me/${cleanedPhone}`;
 }
 
 function getPhoneLink(phone: string): string {
