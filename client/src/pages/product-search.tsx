@@ -327,7 +327,6 @@ const ProductSearch = () => {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
   const [selectedItem, setSelectedItem] = useState<ProductItem | null>(null);
-  const [listingTypeFilter, setListingTypeFilter] = useState<'seller' | 'buyer'>('seller');
   const [searchCircle, setSearchCircle] = useState<{
     center: { lat: number; lng: number };
     radius: number;
@@ -502,7 +501,6 @@ const ProductSearch = () => {
   });
 
   const handleModeChange = (value: 'seller' | 'buyer') => {
-    setListingTypeFilter(value);
     form.setValue('listingType', value);
   };
 
@@ -534,7 +532,7 @@ const ProductSearch = () => {
                       <FormControl>
                         <RadioGroup
                           value={field.value}
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => handleModeChange(value as 'seller' | 'buyer')}
                           className="flex space-x-4"
                         >
                           <FormItem className="flex items-center space-x-2">
@@ -653,7 +651,7 @@ const ProductSearch = () => {
             {filteredProducts && filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredProducts
-                  .filter(product => product.listingType === listingTypeFilter)
+                  .filter(product => product.listingType === form.watch('listingType'))
                   .map((product) => (
                     <Card key={product.id} className={`table-glow ${product.listingType === 'buyer' ? 'border-red-500' : ''}`}>
                       <CardContent className="p-4">
@@ -753,8 +751,8 @@ const ProductSearch = () => {
               selectedCategory && (
                 <p className="text-center text-muted-foreground">
                   {isLocationSearchActive
-                    ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${listingTypeFilter === 'buyer' ? 'requests' : 'listings'} found within the selected area`
-                    : `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${listingTypeFilter === 'buyer' ? 'requests' : 'listings'} found`}
+                    ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found within the selected area`
+                    : `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${form.watch('listingType') === 'buyer' ? 'requests' : 'listings'} found`}
                 </p>
               )
             )}
