@@ -18,10 +18,10 @@ const sortProductsByAdminStatus = (products) => {
   });
 };
 
-const getProductNameStyle = (product) => {
+const getTextStyle = (product, isTitle = false) => {
   const baseStyle = {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: isTitle ? 18 : 14,
+    fontWeight: isTitle ? 'bold' : 'normal',
     marginBottom: 4,
   };
 
@@ -133,13 +133,19 @@ export default function ProductSearchScreen({ navigation }) {
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
       <View style={styles.productInfo}>
-        <Text style={getProductNameStyle(item)}>{item.name}</Text>
-        <Text style={styles.productCategory}>{item.category}</Text>
-        <Text style={styles.productPrice}>${item.targetPrice}</Text>
-        <Text style={styles.sellerInfo}>
+        <Text style={getTextStyle(item, true)}>{item.name}</Text>
+        <Text style={getTextStyle(item)}>{item.category}</Text>
+        <Text style={getTextStyle(item)}>${item.targetPrice}</Text>
+        <Text style={getTextStyle(item)}>
+          Quantity: {item.quantity}
+        </Text>
+        <Text style={getTextStyle(item)}>
+          Quality: {item.quality}
+        </Text>
+        <Text style={getTextStyle(item)}>
           Seller: <Text style={{ color: '#9333ea' }}>{item.sellerUsername}</Text>
         </Text>
-        <Text style={styles.productLocation}>{item.city}, {item.state}</Text>
+        <Text style={getTextStyle(item)}>{item.city}, {item.state}</Text>
       </View>
 
       <View style={styles.mapContainer}>

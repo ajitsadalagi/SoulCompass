@@ -16,6 +16,11 @@ function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
   return `font-bold ${listingType === 'buyer' ? '!text-red-600' : '!text-green-600'}`;
 }
 
+// Add function to get text color based on listing type
+function getTextColorClass(listingType: 'buyer' | 'seller'): string {
+  return listingType === 'buyer' ? '!text-red-600/80' : '!text-green-600/80';
+}
+
 // Add new function to handle map directions
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
   if (lat && lng) {
@@ -226,14 +231,14 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
-                <p>Quantity: {product.quantity}</p>
-                <p>Quality: {product.quality}</p>
-                <p>Condition: {product.condition}</p>
-                <p>Category: {product.category}</p>
-                <p>Price: ₹{product.targetPrice?.toString()}</p>
+                <p className={getTextColorClass(product.listingType)}>Quantity: {product.quantity}</p>
+                <p className={getTextColorClass(product.listingType)}>Quality: {product.quality}</p>
+                <p className={getTextColorClass(product.listingType)}>Condition: {product.condition}</p>
+                <p className={getTextColorClass(product.listingType)}>Category: {product.category}</p>
+                <p className={getTextColorClass(product.listingType)}>Price: ₹{product.targetPrice?.toString()}</p>
                 <button
                   onClick={() => handleLocationClick(product)}
-                  className="flex items-center gap-2 text-primary hover:underline cursor-pointer"
+                  className={`flex items-center gap-2 ${getTextColorClass(product.listingType)} hover:underline cursor-pointer`}
                 >
                   <MapPin className="w-4 h-4" />
                   <span>{product.city}, {product.state}</span>
@@ -243,7 +248,7 @@ export default function HomePage() {
                   <span>Listed {format(new Date(product.createdAt), 'PPp')}</span>
                 </div>
                 <div className="border-t pt-2 mt-2">
-                  <p className="font-medium mb-1 flex items-center gap-2">
+                  <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
                     <User className="w-4 h-4" />
                     Local Admins:
                   </p>
@@ -255,9 +260,9 @@ export default function HomePage() {
                           onClick={() => handleContactAdmin(admin.id)}
                           className={`username inline-flex items-center px-2 py-1 rounded-full transition-colors cursor-pointer ${
                             admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
-                              ? 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                              ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
                               : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
-                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
                               : 'bg-primary/10 hover:bg-primary/20'
                           }`}
                         >
