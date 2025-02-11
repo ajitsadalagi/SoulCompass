@@ -21,15 +21,39 @@ const sortProductsByAdminStatus = (products) => {
 // Add function to get card style based on admin status
 const getCardStyle = (product) => {
   const admin = product.admins?.[0];
-  if (!admin) return styles.productCard;
+  if (!admin) return [styles.productCard];
 
   if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
-    return [styles.productCard, styles.superAdminCard];
+    return [
+      styles.productCard,
+      {
+        borderWidth: 3,
+        borderColor: '#8b5cf6', // violet-500
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+        backgroundColor: '#f5f3ff', // violet-50
+      }
+    ];
   }
   if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
-    return [styles.productCard, styles.localAdminCard];
+    return [
+      styles.productCard,
+      {
+        borderWidth: 3,
+        borderColor: '#a855f7', // purple-500
+        shadowColor: '#a855f7',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+        backgroundColor: '#faf5ff', // purple-50
+      }
+    ];
   }
-  return styles.productCard;
+  return [styles.productCard];
 };
 
 export default function ProductSearchScreen({ navigation }) {
