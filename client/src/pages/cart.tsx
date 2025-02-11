@@ -47,17 +47,17 @@ export default function CartPage() {
     });
   };
 
-  const handleContactSeller = async (sellerId: number) => {
+  const handleContactSeller = async (productId: number) => {
     try {
-      const response = await apiRequest("GET", `/api/users/${sellerId}`);
+      const response = await apiRequest("POST", `/api/products/${productId}/contact`);
       const data = await response.json();
-      const formattedPhone = formatPhoneNumber(data.mobileNumber);
+      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
 
       toast({
         title: "Seller Contact Information",
         description: (
           <div className="mt-2 space-y-2">
-            <p><strong>Name:</strong> {data.name}</p>
+            <p><strong>Name:</strong> {data.seller.name}</p>
             <div className="flex flex-col gap-2">
               <p className="font-semibold">Contact Options:</p>
               <div className="flex gap-2">
@@ -136,11 +136,20 @@ export default function CartPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleContactSeller(item.sellerId)}
+                      onClick={() => handleContactSeller(item.id)}
                       className="flex items-center gap-2"
                     >
                       <Phone className="w-4 h-4" />
                       Contact Seller
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(getGoogleMapsDirectionsUrl(item.city, item.state), '_blank')}
+                      className="flex items-center gap-2"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Get Directions
                     </Button>
                   </div>
                 </div>

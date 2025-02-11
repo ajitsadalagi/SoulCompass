@@ -10,6 +10,8 @@ interface CartItem {
   sellerId: number;
   quality: string;
   category: string;
+  city: string;
+  state: string;
 }
 
 interface CartContextType {
@@ -91,6 +93,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       sellerId: product.sellerId,
       quality: product.quality,
       category: product.category,
+      city: product.city,
+      state: product.state,
     };
     addItem(cartItem);
   };
