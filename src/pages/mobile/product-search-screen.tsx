@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
-// Add sorting function for admin listings
+// Sort products to show admin listings first
 const sortProductsByAdminStatus = (products) => {
   return [...products].sort((a, b) => {
     const getAdminPriority = (product) => {
@@ -16,44 +16,6 @@ const sortProductsByAdminStatus = (products) => {
     };
     return getAdminPriority(b) - getAdminPriority(a);
   });
-};
-
-// Add function to get card style based on admin status
-const getCardStyle = (product) => {
-  const admin = product.admins?.[0];
-  if (!admin) return [styles.productCard];
-
-  if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
-    return [
-      styles.productCard,
-      {
-        borderWidth: 3,
-        borderColor: '#8b5cf6', // violet-500
-        shadowColor: '#8b5cf6',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 5,
-        backgroundColor: '#f5f3ff', // violet-50
-      }
-    ];
-  }
-  if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
-    return [
-      styles.productCard,
-      {
-        borderWidth: 3,
-        borderColor: '#a855f7', // purple-500
-        shadowColor: '#a855f7',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 5,
-        backgroundColor: '#faf5ff', // purple-50
-      }
-    ];
-  }
-  return [styles.productCard];
 };
 
 export default function ProductSearchScreen({ navigation }) {
@@ -115,13 +77,48 @@ export default function ProductSearchScreen({ navigation }) {
     }
   };
 
+  const getCardStyle = (product) => {
+    const admin = product.admins?.[0];
+    if (!admin) return styles.productCard;
+
+    if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') {
+      return {
+        ...styles.productCard,
+        borderWidth: 3,
+        borderColor: '#8b5cf6', // violet-500
+        backgroundColor: '#f5f3ff', // violet-50
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+      };
+    }
+
+    if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') {
+      return {
+        ...styles.productCard,
+        borderWidth: 3,
+        borderColor: '#a855f7', // purple-500
+        backgroundColor: '#faf5ff', // purple-50
+        shadowColor: '#a855f7',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+      };
+    }
+
+    return styles.productCard;
+  };
+
   const renderProduct = ({ item }) => (
     <TouchableOpacity 
       style={getCardStyle(item)}
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
       <View style={styles.productInfo}>
-        <Text style={[styles.productName, { color: '#16a34a' }]}>{item.name}</Text>
+        <Text style={styles.productName}>{item.name}</Text>
         <Text style={styles.productCategory}>{item.category}</Text>
         <Text style={styles.productPrice}>${item.targetPrice}</Text>
         <Text style={styles.sellerInfo}>
@@ -213,26 +210,13 @@ const styles = StyleSheet.create({
     borderColor: '#e4e4e7',
     borderRadius: 8,
     marginBottom: 16,
+    backgroundColor: '#fff',
     overflow: 'hidden',
-  },
-  // Add styles for admin cards
-  superAdminCard: {
-    borderWidth: 2,
-    borderColor: '#8b5cf6', // violet-500
-    shadowColor: '#c4b5fd', // violet-200
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  localAdminCard: {
-    borderWidth: 2,
-    borderColor: '#a855f7', // purple-500
-    shadowColor: '#e9d5ff', // purple-200
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   productInfo: {
     padding: 16,
@@ -241,6 +225,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
+    color: '#16a34a',
   },
   productCategory: {
     fontSize: 14,
