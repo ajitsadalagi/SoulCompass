@@ -28,7 +28,7 @@ import { Circle, GoogleMap } from "@react-google-maps/api";
 import { AdminRequestForm } from "@/components/ui/admin-request-form";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trash2, Check, X, PencilIcon, MapPin } from "lucide-react";
+import { Trash2, Check, X, PencilIcon, MapPin, Badge } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { insertProductSchema } from "@shared/schema";
@@ -934,11 +934,14 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             {user.adminStatus === "pending" ? (
-              <div className="text-muted-foreground">
-                Your request for {user.adminType} role is pending approval.
+              <div>
+                <p className="text-muted-foreground">
+                  Your admin request is currently pending approval.
+                  It was submitted on {format(new Date(user.adminRequestDate!), 'PPp')}.
+                </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="spacey-4">
                 <div className="text-muted-foreground">Request administrative privileges:</div>
                 <div className="flex gap-2">
                   <Button
@@ -962,497 +965,350 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {/* New Section for Super Admins to Request Master Admin Approval */}
-      {user.adminType === "super_admin" && user.adminStatus !== "approved" && (
+      {/* Add master admin user management section */}
+      {user.username === "masteradmin123" && user.adminType === "master_admin" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FiShield className="h-5 w-5" />
-              Request Master Admin Approval
+              <FiUsers className="h-5 w-5" />
+              User Management
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {user.adminStatus === "pending" ? (
-              <div className="text-muted-foreground">
-                Your super admin request is pending approval from a master admin.
-              </div>
+            {allUsers?.length === 0 ? (
+              <p className="text-center text-muted-foreground">No users found</p>
             ) : (
               <div className="space-y-4">
-                <div className="text-muted-foreground">
-                  Your super admin role requires approval from a master admin:
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => requestAdminMutation.mutate({
-                    adminType: "super_admin",
-                    requestedAdminId: null
-                  })}
-                  disabled={requestAdminMutation.isPending}
-                >
-                  Request Master Admin Approval
-                </Button>
+                {allUsers?.map((userData) => (
+                  <div key={userData.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{userData.username}</span>
+                        {userData.adminType !== 'none' && (
+                          <Badge variant={userData.adminType === 'super_admin' ? 'default' : 'secondary'}>
+                            {userData.adminType === 'super_admin' ? 'Super Admin' : 'Local Admin'}
+                          </Badge>
+                        )}
+                        {userData.adminStatus === 'approved' && (
+                          <Badge variant="outline" className="bg-green-50">
+                            Approved
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p>Mobile: {userData.mobileNumber}</p>
+                        {userData.location && <p>Location: {userData.location}</p>}
+                        <div className="flex gap-2">
+                          {userData.roles.map((role, index) => (
+                            <Badge key={index} variant="outline" className="capitalize">
+                              {role}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" className="gap-2">
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogTitle>Delete User</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this user? This action cannot be undone.
+                          {userData.adminType !== 'none' && (
+                            <p className="mt-2 text-red-500">
+                              Warning: This user has {userData.adminType} privileges.
+                            </p>
+                          )}
+                        </AlertDialogDescription>
+                        <div className="flex justify-end gap-4 mt-4">
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteUserMutation.mutate(userData.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete User
+                          </AlertDialogAction>
+                        </div>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {renderAdminSearchSection()}
-
-      {user.adminStatus === "approved" &&
-        (user.adminType === "super_admin" || user.adminType === "master_admin") && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FiUserCheck className="h-5 w-5" />
-                Admin Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <div className="flex gap-4 mb-4">
-                  <Input
-                    placeholder="Search admins by name or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-md"
-                  />
-                  <Button variant="outline">
-                    <FiSearch className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="space-y-4">
-                  {adminUsers?.filter((admin) => {
-                    const searchLower = searchQuery.toLowerCase();
-                    const nameLower = (admin.name || admin.username).toLowerCase();
-                    const locationLower = (admin.location || "").toLowerCase();
-
-                    return (
-                      admin.adminType === "super_admin" &&
-                      admin.adminStatus === "approved" &&
-                      (nameLower.includes(searchLower) || locationLower.includes(searchLower))
-                    );
-                  }).map((admin) => (
-                    <div key={admin.id} className="flex items-center justify-between p-4 border rounded">
-                      <div>
-                        <div className="font-medium">{admin.name || admin.username}</div>
-                        {admin.location && (
-                          <div className="text-sm text-muted-foreground">{admin.location}</div>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">{admin.adminType}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {adminRequests && adminRequests.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Pending Requests</h3>
-                    <div className="space-y-4">
-                      {adminRequests.map((request) => (
-                        <div key={request.id} className="flex items-center justify-between p-4 border rounded">
-                          <div>
-                            <div className="font-medium">{request.name || request.username}</div>
-                            {request.location && (
-                              <div className="text-sm text-muted-foreground">{request.location}</div>
-                            )}
-                            <div className="text-sm text-muted-foreground">
-                              Requesting: {request.adminType}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() =>
-                                approveAdminMutation.mutate({
-                                  userId: request.id,
-                                  action: "approve",
-                                })
-                              }
-                              disabled={approveAdminMutation.isPending}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              onClick={() =>
-                                approveAdminMutation.mutate({
-                                  userId: request.id,
-                                  action: "reject",
-                                  reason: "Request rejected",
-                                })
-                              }
-                              disabled={approveAdminMutation.isPending}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Master Admin Section for Managing Super Admin Requests */}
-        {user.adminType === "master_admin" && user.adminStatus === "approved" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FiShield className="h-5 w-5" />
-                Super Admin Requests
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {adminRequests?.filter(request =>
-                  request.adminType === "super_admin" && request.adminStatus === "pending"
-                ).map(request => (
-                  <div key={request.id} className="flex flex-col p-4 border rounded">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="font-medium text-lg">{request.name || request.username}</div>
-                        {request.location && (
-                          <div className="text-sm text-muted-foreground">{request.location}</div>
-                        )}
-                        <div className="text-sm text-muted-foreground mt-1">
-                          Requested on: {new Date(request.adminRequestDate!).toLocaleDateString()}
-                        </div>
-                        <div className="text-sm mt-2">
-                          <span className="font-medium">Mobile:</span> {request.mobileNumber}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            approveAdminMutation.mutate({
-                              userId: request.id,
-                              action: "approve"
-                            })
-                          }
-                          disabled={approveAdminMutation.isPending}
-                          className="bg-green-50 hover:bg-green-100 text-green-700"
-                        >
-                          Approve Super Admin
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          onClick={() =>
-                            approveAdminMutation.mutate({
-                              userId: request.id,
-                              action: "reject",
-                              reason: "Super admin request rejected by master admin"
-                            })
-                          }
-                          disabled={approveAdminMutation.isPending}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {(!adminRequests || adminRequests.filter(request =>
-                  request.adminType === "super_admin" && request.adminStatus === "pending"
-                ).length === 0) && (
-                  <div className="text-center text-muted-foreground p-8">
-                    <FiUserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg">No pending super admin requests</p>
-                    <p className="text-sm mt-2">All super admin requests have been processed</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
               <FiHome className="h-5 w-5" />
-              Personal Details
+              Profile Information
             </CardTitle>
-            {!isEditing ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2"
-              >
-                <PencilIcon className="h-4 w-4" />
-                Edit
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsEditing(false);
-                    form.reset();
-                  }}
-                  className="flex items-center gap-2 text-destructive hover:text-destructive"
-                >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              className="gap-2"
+            >
+              {isEditing ? (
+                <>
                   <X className="h-4 w-4" />
                   Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  form="profile-form"
-                  className="flex items-center gap-2"
-                >
-                  <Check className="h-4 w-4" />
-                  Save
-                </Button>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form
-                id="profile-form"
-                onSubmit={form.handleSubmit((data) => {
-                  onSubmit(data);
-                  setIsEditing(false);
-                })}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Your first name"
-                            {...field}
-                            disabled={!isEditing}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField                  control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Your last name"
-                            {...field}
-                            disabled={!isEditing}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
+                </>
+              ) : (
+                <>
+                  <PencilIcon className="h-4 w-4" />
+                  Edit
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form
+              id="profile-form"
+              onSubmit={form.handleSubmit((data) => {
+                onSubmit(data);
+                setIsEditing(false);
+              })}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="mobileNumber"
+                  name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mobile Number</FormLabel>
+                      <FormLabel>First Name</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Your mobile number"
+                          placeholder="Your first name"
                           {...field}
-                          type="tel"
-                          pattern="[0-9]*"
                           disabled={!isEditing}
                         />
                       </FormControl>
-                      <FormDescription>
-                        Enter your mobile number without spaces or special characters
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Your last name"
+                          {...field}
+                          disabled={!isEditing}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormDescription>
-                    Use the map to select your location or allow automatic location detection
-                  </FormDescription>
-                  <LocationPicker
-                    defaultLocation={
-                      user?.latitude && user?.longitude                      ? {
+              <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Your mobile number"
+                        {...field}
+                        type="tel"
+                        pattern="[0-9]*"
+                        disabled={!isEditing}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter your mobile number without spaces or special characters
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormDescription>
+                  Use the map to select your location or allow automatic location detection
+                </FormDescription>
+                <LocationPicker
+                  defaultLocation={
+                    user?.latitude && user?.longitude
+                      ? {
                         latitude: user.latitude,
                         longitude: user.longitude,
                         address: user.location || undefined,
                       }
-                        : undefined
-                    }
-                    onLocationSelect={(location) => {
-                      setSelectedLocation(location);
-                      form.setValue("location", location.address || "");
-                      form.setValue("latitude", location.latitude);
-                      form.setValue("longitude", location.longitude);
-                    }}
-                    disabled={!isEditing}
-                  />
-                </FormItem>
-              </form>
-            </Form>
+                      : undefined
+                  }
+                  onLocationSelect={(location) => {
+                    setSelectedLocation(location);
+                    form.setValue("location", location.address || "");
+                    form.setValue("latitude", location.latitude);
+                    form.setValue("longitude", location.longitude);
+                  }}
+                  disabled={!isEditing}
+                />
+              </FormItem>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FiShield className="h-5 w-5" />
+            Platform Administrators
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {user.adminType === "master_admin" && (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Super Administrators</h3>
+                <div className="space-y-2">
+                  {adminUsers?.filter((admin) =>
+                    admin.adminType === "super_admin" && admin.adminStatus === "approved"
+                  ).map((admin) => (
+                    <div key={admin.id} className="flex items-center gap-2 p2 border rounded">
+                      <span>{admin.name || admin.username}</span>
+                      {admin.location && <span className="text-muted-foreground">({admin.location})</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(user.adminType === "master_admin" || user.adminType === "super_admin") && (
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Current Local Admins</h3>
+                <div className="space-y-4">
+                  {adminUsers?.filter((admin) =>
+                    admin.adminType === "local_admin" && admin.adminStatus === "approved"
+                  ).map((admin) => (
+                    <div key={admin.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>{admin.username}</span>
+                        {admin.location && <span className="text-muted-foreground">({admin.location})</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {user && user.roles.includes("seller") && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center gap-2">
+                <FiShoppingBag className="h-5 w-5" />
+                My Products
+              </CardTitle>
+              <Button
+                variant="outline"
+                onClick={() => setLocation('/products/new')}
+                className="flex items-center gap-2"
+              >
+                Add New Product
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingProducts ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : !userProducts?.length ? (
+              <div className="text-center text-muted-foreground p-4">
+                No products listed yet
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {userProducts.map(renderProductCard)}
+                {!userProducts?.length && (
+                  <div className="text-center text-muted-foreground p-8">
+                    <FiShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">No products listed yet</p>
+                    <p className="text-sm mt-2">Click the 'Add New Product' button to create your first listing</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
+      )}
 
+      {renderEditDialog()}
+      {user?.username === "masteradmin123" && user?.adminType === "master_admin" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FiShield className="h-5 w-5" />
-              Platform Administrators
+              <FiUsers className="h-5 w-5" />
+              User Management
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {user.adminType === "master_admin" && (
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Super Administrators</h3>
-                  <div className="space-y-2">
-                    {adminUsers?.filter((admin) =>
-                      admin.adminType === "super_admin" && admin.adminStatus === "approved"
-                    ).map((admin) => (
-                      <div key={admin.id} className="flex items-center gap-2 p2 border rounded">
-                        <span>{admin.name || admin.username}</span>
-                        {admin.location && <span className="text-muted-foreground">({admin.location})</span>}
-                      </div>
-                    ))}
+              {allUsers?.map((u) => (
+                <div key={u.id} className="flex items-center justify-between p-4 border rounded">
+                  <div>
+                    <div className="font-medium">{u.username}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {u.firstName} {u.lastName}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Roles: {u.roles.join(", ")}
+                    </div>
                   </div>
-                </div>
-              )}
-              {(user.adminType === "master_admin" || user.adminType === "super_admin") && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-4">Current Local Admins</h3>
-                  <div className="space-y-4">
-                    {adminUsers?.filter((admin) =>
-                      admin.adminType === "local_admin" && admin.adminStatus === "approved"
-                    ).map((admin) => (
-                      <div key={admin.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span>{admin.username}</span>
-                          {admin.location && <span className="text-muted-foreground">({admin.location})</span>}
+                  {u.username !== "masteradmin123" && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete User
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogTitle>Delete User</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete {u.username}? This action cannot be undone.
+                        </AlertDialogDescription>
+                        <div className="flex justify-end gap-4 mt-4">
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteUserMutation.mutate(u.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           </CardContent>
         </Card>
-
-        {user && user.roles.includes("seller") && (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center gap-2">
-                  <FiShoppingBag className="h-5 w-5" />
-                  My Products
-                </CardTitle>
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation('/products/new')}
-                  className="flex items-center gap-2"
-                >
-                  Add New Product
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingProducts ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : !userProducts?.length ? (
-                <div className="text-center text-muted-foreground p-4">
-                  No products listed yet
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {userProducts.map(renderProductCard)}
-                  {!userProducts?.length && (
-                    <div className="text-center text-muted-foreground p-8">
-                      <FiShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg">No products listed yet</p>
-                      <p className="text-sm mt-2">Click the 'Add New Product' button to create your first listing</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {renderEditDialog()}
-        {user?.username === "masteradmin123" && user?.adminType === "master_admin" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FiUsers className="h-5 w-5" />
-                User Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {allUsers?.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between p-4 border rounded">
-                    <div>
-                      <div className="font-medium">{u.username}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {u.firstName} {u.lastName}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Roles: {u.roles.join(", ")}
-                      </div>
-                    </div>
-                    {u.username !== "masteradmin123" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete User
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogTitle>Delete User</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete {u.username}? This action cannot be undone.
-                          </AlertDialogDescription>
-                          <div className="flex justify-end gap-4 mt-4">
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteUserMutation.mutate(u.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </div>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
+}
