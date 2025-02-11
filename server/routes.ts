@@ -407,6 +407,7 @@ export function registerRoutes(app: Express): Server {
 
     try {
       console.log("Received product data:", req.body);
+      console.log("Creating product for seller:", req.user.id);
 
       const productData = {
         ...req.body,
@@ -416,7 +417,7 @@ export function registerRoutes(app: Express): Server {
         targetPrice: req.body.targetPrice,
         latitude: req.body.latitude ? Number(req.body.latitude) : null,
         longitude: req.body.longitude ? Number(req.body.longitude) : null,
-        sellerId: req.user?.id,
+        sellerId: req.user.id,  // Explicitly set the sellerId
       };
 
       console.log("Processed product data:", productData);
@@ -435,8 +436,8 @@ export function registerRoutes(app: Express): Server {
       // Create the product with the validated data and optional local admin IDs
       const product = await storage.createProduct({
         ...validatedData,
-        sellerId: req.user?.id,
-        localAdminIds: req.body.localAdminIds || [], // Make localAdminIds optional
+        sellerId: req.user.id,  // Ensure sellerId is set again
+        localAdminIds: req.body.localAdminIds || [], 
       });
 
       console.log("Created product:", product);
@@ -550,14 +551,20 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
+      console.log("Found product:", product);
+      console.log("Attempting to find seller with ID:", product.sellerId);
+
       // Get seller information
       const seller = await storage.getUser(product.sellerId);
       if (!seller) {
+        console.log("Seller not found for product:", product.id, "seller ID:", product.sellerId);
         return res.status(404).json({
-          message: "Seller not found",
-          error: "Invalid seller ID"
+          message: "Seller information not available",
+          error: "Seller no longer exists"
         });
       }
+
+      console.log("Found seller:", seller.id, seller.username);
 
       console.log("Incrementing contact requests for product:", product.id);
       await storage.incrementContactRequests(product.id);
@@ -566,7 +573,7 @@ export function registerRoutes(app: Express): Server {
       res.status(200).json({
         message: "Contact request processed successfully",
         seller: {
-          name: seller.name || seller.username,
+          name: seller.username,  // Always use username as fallback
           mobileNumber: seller.mobileNumber,
         }
       });
@@ -578,7 +585,6 @@ export function registerRoutes(app: Express): Server {
       });
     }
   });
-
 
   app.delete("/api/user", requireAuth, async (req, res) => {
     try {
