@@ -56,20 +56,35 @@ const getTextStyle = (product: Product, isTitle = false) => {
 
 const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) => {
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const shadowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(shadowAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+          Animated.timing(shadowAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+        ]),
       ])
     ).start();
   }, []);
@@ -87,10 +102,11 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
     };
 
     if (isAdminApproved && isSuperAdmin) {
+      const glowColor = isBuyerListing ? 'rgba(239, 68, 68, ' : 'rgba(34, 197, 94, ';
       return {
         ...baseStyle,
-        borderColor: '#8b5cf6',
-        backgroundColor: '#f5f3ff',
+        borderColor: isBuyerListing ? '#ef4444' : '#22c55e',
+        backgroundColor: isBuyerListing ? '#fef2f2' : '#f0fdf4',
         transform: [
           { scale: 1.02 },
           {
@@ -100,19 +116,29 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
             }),
           },
         ],
-        shadowColor: '#8b5cf6',
+        shadowColor: isBuyerListing ? '#ef4444' : '#22c55e',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-        elevation: 10,
+        shadowOpacity: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.3, 0.8],
+        }),
+        shadowRadius: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [4, 12],
+        }),
+        elevation: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [6, 12],
+        }),
       };
     }
 
     if (isAdminApproved && isLocalAdmin) {
+      const glowColor = isBuyerListing ? 'rgba(239, 68, 68, ' : 'rgba(34, 197, 94, ';
       return {
         ...baseStyle,
-        borderColor: '#a855f7',
-        backgroundColor: '#faf5ff',
+        borderColor: isBuyerListing ? '#f87171' : '#4ade80',
+        backgroundColor: isBuyerListing ? '#fff1f2' : '#f0fdf4',
         transform: [
           { scale: 1.01 },
           {
@@ -122,11 +148,20 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
             }),
           },
         ],
-        shadowColor: '#a855f7',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowColor: isBuyerListing ? '#f87171' : '#4ade80',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.2, 0.6],
+        }),
+        shadowRadius: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [3, 8],
+        }),
+        elevation: shadowAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [4, 8],
+        }),
       };
     }
 
@@ -157,7 +192,7 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
             Quality: {item.quality}
           </Text>
           <Text style={getTextStyle(item)}>
-            Seller: <Text style={{ color: '#9333ea' }}>{item.sellerUsername}</Text>
+            Seller: {item.sellerUsername}
           </Text>
           <Text style={getTextStyle(item)}>{item.city}, {item.state}</Text>
         </View>
