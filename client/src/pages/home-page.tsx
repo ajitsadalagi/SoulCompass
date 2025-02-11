@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
 
 // Helper function to calculate distance between two points
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -40,22 +41,7 @@ function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city
 }
 
 // Add the category emoji function after the getGoogleMapsDirectionsUrl function
-function getCategoryEmoji(category: string): string {
-  switch (category.toLowerCase()) {
-    case 'fruits':
-      return '🍎';
-    case 'vegetables':
-      return '🥕';
-    case 'dairy':
-      return '🥛';
-    case 'meat':
-      return '🥩';
-    case 'grains':
-      return '🌾';
-    default:
-      return '📦';
-  }
-}
+//function getCategoryEmoji(category: string): string { ... }  //This is already defined above
 
 // Update the product name style function to use stronger colors
 function getProductNameStyle(listingType: 'buyer' | 'seller'): string {
@@ -230,15 +216,17 @@ export default function HomePage() {
         {nearbyProducts?.map((product) => (
           <Card key={product.id} className={`table-glow ${getCardStyle(product)}`}>
             <CardHeader className="flex flex-row items-center gap-4">
-              <span className="text-4xl">
-                {getCategoryEmoji(product.category)}
-              </span>
-              <CardTitle className={getProductNameStyle(product.listingType)}>
-                {product.name}
-                {product.listingType === 'buyer' && (
-                  <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
-                )}
-              </CardTitle>
+              <div className="flex items-center gap-4 mb-2">
+                <span className="text-4xl flex items-center">
+                  {getCategoryEmoji(product.category)} → {getProductEmoji(product.name, product.category)}
+                </span>
+                <h3 className={`font-medium product-name ${getProductNameStyle(product.listingType)}`}>
+                  {product.name}
+                  {product.listingType === 'buyer' && (
+                    <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
+                  )}
+                </h3>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
