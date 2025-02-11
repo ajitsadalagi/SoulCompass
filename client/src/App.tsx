@@ -10,7 +10,9 @@ import ProductSearch from "@/pages/product-search";
 import ProfilePage from "@/pages/profile-page";
 import AdminManagement from "@/pages/admin/management";
 import UserManagementPage from "@/pages/admin/user-management";
+import CartPage from "@/pages/cart";
 import { AuthProvider } from "@/hooks/use-auth";
+import { CartProvider } from "@/lib/cart-context";
 import { AuthenticatedLayout } from "@/components/layouts/authenticated-layout";
 
 function Router() {
@@ -42,6 +44,11 @@ function Router() {
           <ProductSearch />
         </AuthenticatedLayout>
       </Route>
+      <Route path="/cart">
+        <AuthenticatedLayout>
+          <CartPage />
+        </AuthenticatedLayout>
+      </Route>
       <Route path="/admin/management">
         <AuthenticatedLayout>
           <AdminManagement />
@@ -65,8 +72,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <CartProvider>
+          <Router />
+          <Toaster />
+        </CartProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

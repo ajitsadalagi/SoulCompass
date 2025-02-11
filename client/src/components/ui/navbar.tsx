@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { FiHome, FiSearch, FiPackage, FiShield, FiUser, FiLogOut } from "react-icons/fi";
 import { Badge } from "@/components/ui/badge";
+import { CartIcon } from "./cart-icon";
 
 export function Navbar() {
   const { user, logoutMutation } = useAuth();
@@ -94,6 +95,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
+              <CartIcon />
               <Link href="/profile">
                 <Button variant="ghost" className="gap-2">
                   <FiUser className="h-4 w-4" />
