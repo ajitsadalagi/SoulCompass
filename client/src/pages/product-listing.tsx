@@ -485,10 +485,10 @@ export default function ProductListing() {
 
   return (
     <div className="p-8">
-      <Card className="max-w-4xl mx-auto table-glow">
+      <Card className={`max-w-4xl mx-auto ${listingMode === 'buyer' ? 'border-red-500' : ''}`}>
         <CardHeader>
           <div className="flex flex-col space-y-4">
-            <CardTitle>
+            <CardTitle className={listingMode === 'buyer' ? 'text-red-500' : ''}>
               {listingMode === 'seller' ? 'List a New Product' : 'Create Buy Request'}
             </CardTitle>
             <Form {...form}>
