@@ -838,12 +838,19 @@ export default function ProfilePage() {
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
   }
 
-  const { data: allUsers } = useQuery<User[]>({
+  const { data: allUsers, isLoading: isLoadingAllUsers } = useQuery<User[]>({
     queryKey: ["/api/users/admins"],
     queryFn: async () => {
-      const res = await fetch("/api/users/admins");
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return res.json();
+      const res = await fetch("/api/users/admins", {
+        credentials: 'include' // Add credentials to ensure session is sent
+      });
+      if (!res.ok) {
+        console.error("Failed to fetch users:", await res.text());
+        throw new Error("Failed to fetch users");
+      }
+      const data = await res.json();
+      console.log("Fetched users:", data); // Add logging
+      return data;
     },
     enabled: !!user && user.username === "masteradmin123" && user.adminType === "master_admin",
   });
