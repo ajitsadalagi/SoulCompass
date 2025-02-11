@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
+import { Product } from "@shared/schema";
 
 interface CartItem {
   id: number;
   name: string;
-  image: string;
   price: number;
   quantity: number;
   sellerId: number;
@@ -20,6 +20,7 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
+  addToCart: (product: Product) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -38,7 +39,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = (newItem: CartItem) => {
     setItems(currentItems => {
       const existingItem = currentItems.find(item => item.id === newItem.id);
-      
+
       if (existingItem) {
         toast({
           title: "Already in cart",
@@ -81,6 +82,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const addToCart = (product: Product) => {
+    const cartItem: CartItem = {
+      id: product.id,
+      name: product.name,
+      price: product.targetPrice || 0,
+      quantity: 1,
+      sellerId: product.sellerId,
+      quality: product.quality,
+      category: product.category,
+    };
+    addItem(cartItem);
+  };
+
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -93,6 +107,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clearCart,
       totalItems,
       totalPrice,
+      addToCart,
     }}>
       {children}
     </CartContext.Provider>

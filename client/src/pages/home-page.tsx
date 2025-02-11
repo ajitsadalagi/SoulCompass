@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle } from "lucide-react";
+import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle, ShoppingCart } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
+import { useCart } from "@/lib/cart-context";
 
 // Helper function to calculate distance between two points
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -103,6 +104,7 @@ export default function HomePage() {
   } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const getLocation = async () => {
@@ -251,6 +253,15 @@ export default function HomePage() {
     }
   };
 
+  // Add function to handle adding to cart
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart`,
+    });
+  };
+
   if (!user) {
     return null;
   }
@@ -383,14 +394,26 @@ export default function HomePage() {
                   <Eye className="w-4 h-4" />
                   <span>{product.views} views</span>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleContactSeller(product.id)}
-                  className="flex items-center gap-2"
-                >
-                  <PhoneIcon className="w-4 h-4" />
-                  Contact ({product.contactRequests || 0})
-                </Button>
+                <div className="flex items-center gap-2">
+                  {product.listingType === 'seller' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddToCart(product)}
+                      className="flex items-center gap-2"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Add to Cart
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => handleContactSeller(product.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <PhoneIcon className="w-4 h-4" />
+                    Contact ({product.contactRequests || 0})
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
