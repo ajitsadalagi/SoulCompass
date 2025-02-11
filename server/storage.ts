@@ -153,7 +153,12 @@ export class DatabaseStorage implements IStorage {
   async getProductById(id: number): Promise<(Product & { admins: User[] }) | undefined> {
     const [product] = await db.select()
       .from(products)
-      .where(eq(products.id, id));
+      .where(
+        and(
+          eq(products.id, id),
+          eq(products.active, true)
+        )
+      );
 
     if (!product) return undefined;
 
@@ -307,7 +312,7 @@ export class DatabaseStorage implements IStorage {
       .from(products)
       .where(
         and(
-          eq(products.id, adminProducts[0].productId),
+          eq(products.id, adminProducts.map(ap => ap.productId)),
           eq(products.active, true)
         )
       );
