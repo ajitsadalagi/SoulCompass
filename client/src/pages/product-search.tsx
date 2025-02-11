@@ -9,6 +9,8 @@ import { Map } from "@/components/ui/map";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FormControl, FormItem, FormLabel } from "@/components/ui/form";
 
 // Add the helper function for Google Maps directions URL
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -311,6 +313,7 @@ const ProductSearch = () => {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
   const [selectedItem, setSelectedItem] = useState<ProductItem | null>(null);
+  const [listingTypeFilter, setListingTypeFilter] = useState<'seller' | 'buyer'>('seller');
   const [searchCircle, setSearchCircle] = useState<{
     center: { lat: number; lng: number };
     radius: number;
@@ -441,7 +444,7 @@ const ProductSearch = () => {
     }
   };
 
-  // Update filteredProducts logic with strict validation
+  // Update filteredProducts logic with strict validation and listing type filter
   const filteredProducts = products?.filter(product => {
     // Category filter
     if (selectedCategory && product.category.toLowerCase() !== selectedCategory.id) {
@@ -504,12 +507,43 @@ const ProductSearch = () => {
     <div className="p-8">
       <Card className="max-w-4xl mx-auto table-glow">
         <CardHeader>
-          <CardTitle>Search Products</CardTitle>
-          {locationError && (
-            <div className="text-sm text-destructive mt-2">
-              {locationError}
-            </div>
-          )}
+          <div className="flex flex-col space-y-4">
+            <CardTitle>Search Products</CardTitle>
+            <RadioGroup
+              defaultValue="seller"
+              value={listingTypeFilter}
+              onValueChange={(value) => setListingTypeFilter(value as 'seller' | 'buyer')}
+              className="flex space-x-4"
+            >
+              <FormItem className="flex items-center space-x-2">
+                <FormControl>
+                  <RadioGroupItem
+                    value="seller"
+                    className="border-2 border-green-500 text-green-500"
+                  />
+                </FormControl>
+                <FormLabel className="text-green-700 font-medium">
+                  Seller Listings
+                </FormLabel>
+              </FormItem>
+              <FormItem className="flex items-center space-x-2">
+                <FormControl>
+                  <RadioGroupItem
+                    value="buyer"
+                    className="border-2 border-red-500 text-red-500"
+                  />
+                </FormControl>
+                <FormLabel className="text-red-700 font-medium">
+                  Buyer Requests
+                </FormLabel>
+              </FormItem>
+            </RadioGroup>
+            {locationError && (
+              <div className="text-sm text-destructive mt-2">
+                {locationError}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-8">
@@ -594,107 +628,110 @@ const ProductSearch = () => {
             {/* Product Results */}
             {filteredProducts && filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredProducts.map((product) => (
-                  <Card key={product.id} className={`table-glow ${product.listingType === 'buyer' ? 'border-red-500' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4 mb-2">
-                        <span className="text-4xl">
-                          {getProductEmoji(product.name, product.category)}
-                        </span>
-                        <h3 className={`font-medium product-name ${product.listingType === 'buyer' ? 'text-red-500' : ''}`}>
-                          {product.name}
-                          {product.listingType === 'buyer' && (
-                            <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
-                          )}
-                        </h3>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <p>Quality: {product.quality}</p>
-                        <p>Price: ₹{product.targetPrice?.toString()}</p>
-                        <p>Quantity: {product.quantity}</p>
-                        <button
-                          onClick={() => window.open(getGoogleMapsDirectionsUrl(
-                            product.latitude,
-                            product.longitude,
-                            product.city,
-                            product.state
-                          ), '_blank')}
-                          className="flex items-center gap-2 text-primary hover:underline cursor-pointer"
-                        >
-                          <MapPin className="w-4 h-4" />
-                          <span>{product.city}, {product.state}</span>
-                        </button>
-                        <div className="flex items-center gap-2 text-muted-foreground mt-2">
-                          <Clock className="w-4 h-4" />
-                          <span>Listed {format(new Date(product.createdAt), 'PPp')}</span>
-                        </div>
-
-                        {/* Local Admins Section */}
-                        <div className="border-t pt-2 mt-2">
-                          <p className="font-medium mb-1 flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            Local Admins:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {product.admins && product.admins.length > 0 ? (
-                              product.admins.map((admin) => (
-                                <button
-                                  key={admin.id}
-                                  onClick={async () => {
-                                    try {
-                                      const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
-                                      const data = await response.json();
-                                      toast({
-                                        title: "Local Admin Contact Information",
-                                        description: (
-                                          <div className="mt-2 space-y-2">
-                                            <p><strong>Name:</strong> {data.name || data.username}</p>
-                                            <p><strong>Mobile:</strong> {data.mobileNumber}</p>
-                                            <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
-                                          </div>
-                                        ),
-                                        duration: 10000,
-                                      });
-                                    } catch (error) {
-                                      console.error('Error fetching admin details:', error);
-                                      toast({
-                                        title: "Error",
-                                        description: error instanceof Error ? error.message : "Failed to fetch admin details",
-                                        variant: "destructive",
-                                      });
-                                    }
-                                  }}
-                                  className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
-                                >
-                                  {admin.username}
-                                </button>
-                              ))
-                            ) : (
-                              <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                {filteredProducts
+                  .filter(product => product.listingType === listingTypeFilter)
+                  .map((product) => (
+                    <Card key={product.id} className={`table-glow ${product.listingType === 'buyer' ? 'border-red-500' : ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4 mb-2">
+                          <span className="text-4xl">
+                            {getProductEmoji(product.name, product.category)}
+                          </span>
+                          <h3 className={`font-medium product-name ${product.listingType === 'buyer' ? 'text-red-500' : ''}`}>
+                            {product.name}
+                            {product.listingType === 'buyer' && (
+                              <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
                             )}
-                          </div>
+                          </h3>
                         </div>
+                        <div className="space-y-2 text-sm">
+                          <p>Quality: {product.quality}</p>
+                          <p>Price: ₹{product.targetPrice?.toString()}</p>
+                          <p>Quantity: {product.quantity}</p>
+                          <button
+                            onClick={() => window.open(getGoogleMapsDirectionsUrl(
+                              product.latitude,
+                              product.longitude,
+                              product.city,
+                              product.state
+                            ), '_blank')}
+                            className="flex items-center gap-2 text-primary hover:underline cursor-pointer"
+                          >
+                            <MapPin className="w-4 h-4" />
+                            <span>{product.city}, {product.state}</span>
+                          </button>
+                          <div className="flex items-center gap-2 text-muted-foreground mt-2">
+                            <Clock className="w-4 h-4" />
+                            <span>Listed {format(new Date(product.createdAt), 'PPp')}</span>
+                          </div>
 
-                        <Button
-                          className={`w-full mt-4 flex items-center justify-center gap-2 ${
-                            product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
-                          }`}
-                          onClick={() => handleContactSeller(product.id)}
-                        >
-                          <Phone className="h-4 w-4" />
-                          {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                          {/* Local Admins Section */}
+                          <div className="border-t pt-2 mt-2">
+                            <p className="font-medium mb-1 flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              Local Admins:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {product.admins && product.admins.length > 0 ? (
+                                product.admins.map((admin) => (
+                                  <button
+                                    key={admin.id}
+                                    onClick={async () => {
+                                      try {
+                                        const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
+                                        const data = await response.json();
+                                        toast({
+                                          title: "Local Admin Contact Information",
+                                          description: (
+                                            <div className="mt-2 space-y-2">
+                                              <p><strong>Name:</strong> {data.name || data.username}</p>
+                                              <p><strong>Mobile:</strong> {data.mobileNumber}</p>
+                                              <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+                                            </div>
+                                          ),
+                                          duration: 10000,
+                                        });
+                                      } catch (error) {
+                                        console.error('Error fetching admin details:', error);
+                                        toast({
+                                          title: "Error",
+                                          description: error instanceof Error ? error.message : "Failed to fetch admin details",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                    className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
+                                  >
+                                    {admin.username}
+                                  </button>
+                                ))
+                              ) : (
+                                <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <Button
+                            className={`w-full mt-4 flex items-center justify-center gap-2 ${
+                              product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
+                            }`}
+                            onClick={() => handleContactSeller(product.id)}
+                          >
+                            <Phone className="h-4 w-4" />
+                            {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                }
               </div>
             ) : (
               selectedCategory && (
                 <p className="text-center text-muted-foreground">
                   {isLocationSearchActive
-                    ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} products found within the selected area`
-                    : `No ${selectedItem ? selectedItem.name : selectedCategory.label} products found`}
+                    ? `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${listingTypeFilter === 'buyer' ? 'requests' : 'listings'} found within the selected area`
+                    : `No ${selectedItem ? selectedItem.name : selectedCategory.label} ${listingTypeFilter === 'buyer' ? 'requests' : 'listings'} found`}
                 </p>
               )
             )}
