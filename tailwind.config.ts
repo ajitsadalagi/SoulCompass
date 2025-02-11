@@ -64,25 +64,39 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "border-glow-violet": {
+          "0%, 100%": {
+            "box-shadow": "0 0 15px rgba(139, 92, 246, 0.3)",
+            borderColor: "rgb(139, 92, 246)",
           },
-          to: {
-            height: "0",
+          "50%": {
+            "box-shadow": "0 0 30px rgba(139, 92, 246, 0.6)",
+            borderColor: "rgb(167, 139, 250)",
+          },
+        },
+        "border-glow-purple": {
+          "0%, 100%": {
+            "box-shadow": "0 0 15px rgba(168, 85, 247, 0.3)",
+            borderColor: "rgb(168, 85, 247)",
+          },
+          "50%": {
+            "box-shadow": "0 0 30px rgba(168, 85, 247, 0.6)",
+            borderColor: "rgb(192, 132, 252)",
           },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "border-glow-violet": "border-glow-violet 2s ease-in-out infinite",
+        "border-glow-purple": "border-glow-purple 2s ease-in-out infinite",
       },
     },
   },
