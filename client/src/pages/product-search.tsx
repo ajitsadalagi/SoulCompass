@@ -593,13 +593,18 @@ const ProductSearch = () => {
             {filteredProducts && filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredProducts.map((product) => (
-                  <Card key={product.id} className="table-glow">
+                  <Card key={product.id} className={`table-glow ${product.listingType === 'buyer' ? 'border-red-500' : ''}`}>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4 mb-2">
                         <span className="text-4xl">
                           {getProductEmoji(product.name, product.category)}
                         </span>
-                        <h3 className="font-medium product-name">{product.name}</h3>
+                        <h3 className={`font-medium product-name ${product.listingType === 'buyer' ? 'text-red-500' : ''}`}>
+                          {product.name}
+                          {product.listingType === 'buyer' && (
+                            <span className="ml-2 text-sm text-red-500">(Buyer Request)</span>
+                          )}
+                        </h3>
                       </div>
                       <div className="space-y-2 text-sm">
                         <p>Quality: {product.quality}</p>
@@ -659,7 +664,7 @@ const ProductSearch = () => {
                                   }}
                                   className="username inline-flex items-center px-2 py-1 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
                                 >
-                                  {admin.name || admin.username}
+                                  {admin.username}
                                 </button>
                               ))
                             ) : (
@@ -669,11 +674,13 @@ const ProductSearch = () => {
                         </div>
 
                         <Button
-                          className="w-full mt-4 flex items-center justify-center gap-2"
+                          className={`w-full mt-4 flex items-center justify-center gap-2 ${
+                            product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
+                          }`}
                           onClick={() => handleContactSeller(product.id)}
                         >
                           <Phone className="h-4 w-4" />
-                          Contact Seller ({product.contactRequests || 0} requests)
+                          {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
                         </Button>
                       </div>
                     </CardContent>

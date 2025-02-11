@@ -72,6 +72,7 @@ export const products = pgTable(TABLE_NAMES.PRODUCTS, {
   contactRequests: integer("contact_requests").default(0),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  listingType: text("listing_type", { enum: ["buyer", "seller"] }).notNull().default("seller"),
 });
 
 // New junction table for product-admin associations
@@ -150,8 +151,9 @@ export const insertProductSchema = createInsertSchema(products, {
   availabilityDate: z.coerce.date(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+  listingType: z.enum(["buyer", "seller"]).default("seller"),
 }).extend({
-  localAdminIds: z.array(z.number()).optional(), // Make localAdminIds optional
+  localAdminIds: z.array(z.number()).optional(),
 }).pick({
   name: true,
   image: true,
@@ -166,6 +168,7 @@ export const insertProductSchema = createInsertSchema(products, {
   latitude: true,
   longitude: true,
   localAdminIds: true,
+  listingType: true,
 });
 
 export const insertProductAdminSchema = createInsertSchema(productAdmins);
