@@ -76,12 +76,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    // First, deactivate all products owned by this user
-    await db.update(products)
-      .set({ active: false })
+    // First, get all products owned by this user
+    const userProducts = await db.select({ id: products.id })
+      .from(products)
       .where(eq(products.sellerId, id));
 
-    // Remove any references in the product_admins table
+    const productIds = userProducts.map(p => p.id);
+
+    // Delete product_admin associations for all user's products
+    if (productIds.length > 0) {
+      await db.delete(productAdmins)
+        .where(sql`${productAdmins.productId} IN (${sql.join(productIds, sql`, `)})`);
+    }
+
+    // Delete all products owned by this user
+    await db.delete(products)
+      .where(eq(products.sellerId, id));
+
+    // Remove any references in the product_admins table where this user is an admin
     await db.delete(productAdmins)
       .where(eq(productAdmins.adminId, id));
 

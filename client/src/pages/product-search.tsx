@@ -329,18 +329,33 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
-  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+  // Remove all non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
+
+  // Remove any existing country code (both +91 and 91)
+  if (cleaned.startsWith('+91')) {
+    cleaned = cleaned.substring(3);
+  } else if (cleaned.startsWith('91')) {
+    cleaned = cleaned.substring(2);
+  }
+
+  // Ensure the number is bare without any country code
+  // Standard Indian mobile numbers are 10 digits
+  cleaned = cleaned.slice(-10);
+
+  return cleaned;
 }
 
 function getWhatsAppLink(phone: string): string {
   const formattedPhone = formatPhoneNumber(phone);
-  return `https://wa.me/${formattedPhone}`;
+  // Add 91 without + for WhatsApp links
+  return `https://wa.me/91${formattedPhone}`;
 }
 
 function getPhoneLink(phone: string): string {
   const formattedPhone = formatPhoneNumber(phone);
-  return `tel:${formattedPhone}`;
+  // Add +91 for regular phone calls
+  return `tel:+91${formattedPhone}`;
 }
 
 
@@ -759,72 +774,72 @@ const ProductSearch = () => {
 
                           <div className="border-t pt-2 mt-2">
                             <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
-                              <User className="h-4 w-4" />
+                              <User className="h4 w-4" />
                               Local Admins:
                             </p>
                             <div className="flex flex-wrap gap-2">
-                              {product.admins && product.admins.length > 0 ? (
-                                product.admins.map((admin) => (
-                                  <button
-                                    key={admin.id}
-                                    onClick={async () => {
-                                      try {
-                                        const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
-                                        const data = await response.json();
-                                        toast({
-                                          title: "Local Admin Contact Information",
-                                          description: (
-                                            <div className="mt-2 space-y-2">
-                                              <p><strong>Name:</strong> {data.name || data.username}</p>
-                                              <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
-                                              <div className="flex flex-col gap-2">
-                                                <p className="font-semibold">Contact Options:</p>
-                                                <div className="flex gap-2">
-                                                  <a
-                                                    href={getPhoneLink(data.mobileNumber)}
-                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                                                  >
-                                                    <PhoneIcon className="w-4 h-4" />
-                                                    Call
-                                                  </a>
-                                                  <a
-                                                    href={getWhatsAppLink(data.mobileNumber)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                                                  >
-                                                    <MessageCircle className="w-4 h-4" />
-                                                    WhatsApp
-                                                  </a>
+                                                              {product.admins && product.admins.length > 0 ? (
+                                  product.admins.map((admin) => (
+                                    <button
+                                      key={admin.id}
+                                      onClick={async () => {
+                                        try {
+                                          const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
+                                          const data = await response.json();
+                                          toast({
+                                            title: "Local Admin Contact Information",
+                                            description: (
+                                              <div className="mt-2 space-y-2">
+                                                <p><strong>Name:</strong> {data.name || data.username}</p>
+                                                <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+                                                <div className="flex flex-col gap-2">
+                                                  <p className="font-semibold">Contact Options:</p>
+                                                  <div className="flex gap-2">
+                                                    <a
+                                                      href={getPhoneLink(data.mobileNumber)}
+                                                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                                    >
+                                                      <PhoneIcon className="w-4 h-4" />
+                                                      Call
+                                                    </a>
+                                                    <a
+                                                      href={getWhatsAppLink(data.mobileNumber)}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                                                    >
+                                                      <MessageCircle className="w-4 h-4" />
+                                                      WhatsApp
+                                                    </a>
+                                                  </div>
                                                 </div>
                                               </div>
-                                            </div>
-                                          ),
-                                          duration: 10000,
-                                        });
-                                      } catch (error) {
-                                        console.error('Error fetching admin details:', error);
-                                        toast({
-                                          title: "Error",
-                                          description: error instanceof Error ? error.message : "Failed to fetch admin details",
-                                          variant: "destructive",
-                                        });
-                                      }
-                                    }}
-                                    className={`username inline-flex items-center px-2 py-1 rounded-full ${
-                                      admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
-                                        ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
-                                        : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
-                                        ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
-                                        : 'bg-primary/10 hover:bg-primary/20'
-                                    } transition-colorscursor-pointer`}
-                                  >
-                                    {admin.username}
-                                  </button>
-                                ))
-                              ) : (
-                                <span className="text-sm text-muted-foreground">No local admins assigned</span>
-                              )}
+                                            ),
+                                            duration: 10000,
+                                          });
+                                        } catch (error) {
+                                          console.error('Error fetching admin details:', error);
+                                          toast({
+                                            title: "Error",
+                                            description: error instanceof Error ? error.message : "Failed to fetch admin details",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                      className={`username inline-flex items-center px-2 py-1 rounded-full ${
+                                        admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
+                                          ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
+                                          : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
+                                          ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
+                                          : 'bg-primary/10 hover:bg-primary/20'
+                                      } transition-colorscursor-pointer`}
+                                    >
+                                      {admin.username}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                                )}
                             </div>
                           </div>
 
