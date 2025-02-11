@@ -165,14 +165,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminUsers(): Promise<User[]> {
+    // Return all users except the master admin
     return db.select()
       .from(users)
-      .where(
-        and(
-          eq(users.adminStatus, ADMIN_STATUSES.APPROVED),
-          eq(users.adminType, ADMIN_ROLES.NONE)
-        )
-      );
+      .orderBy(asc(users.id));
   }
 
   async getAdminRequests(adminType: string): Promise<User[]> {
