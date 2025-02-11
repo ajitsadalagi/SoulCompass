@@ -333,7 +333,9 @@ function formatPhoneNumber(phone: string): string {
   let cleaned = phone.replace(/\D/g, '');
 
   // Remove any existing country code (both +91 and 91)
-  if (cleaned.startsWith('91')) {
+  if (cleaned.startsWith('+91')) {
+    cleaned = cleaned.substring(3);
+  } else if (cleaned.startsWith('91')) {
     cleaned = cleaned.substring(2);
   }
 
