@@ -18,21 +18,18 @@ interface Product {
   longitude: number;
   listingType: 'buyer' | 'seller';
   sellerUsername: string;
-  admins?: Array<{
-    id: number;
-    adminType: 'super_admin' | 'local_admin';
-    adminStatus: 'approved' | 'pending' | 'rejected';
-  }>;
+  sellerAdminType?: 'super_admin' | 'local_admin';
+  sellerAdminStatus?: 'approved' | 'pending' | 'rejected';
+
 }
 
 // Sort products to show admin listings first
 const sortProductsByAdminStatus = (products: Product[]) => {
   return [...products].sort((a, b) => {
     const getAdminPriority = (product: Product) => {
-      const admin = product.admins?.[0];
-      if (!admin) return 0;
-      if (admin.adminType === 'super_admin' && admin.adminStatus === 'approved') return 2;
-      if (admin.adminType === 'local_admin' && admin.adminStatus === 'approved') return 1;
+      if (!product.sellerAdminStatus) return 0;
+      if (product.sellerAdminType === 'super_admin' && product.sellerAdminStatus === 'approved') return 2;
+      if (product.sellerAdminType === 'local_admin' && product.sellerAdminStatus === 'approved') return 1;
       return 0;
     };
     return getAdminPriority(b) - getAdminPriority(a);
@@ -90,18 +87,17 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
   }, []);
 
   const getCardStyle = () => {
-    const admin = item.admins?.[0];
-    const isAdminApproved = admin?.adminStatus === 'approved';
-    const isSuperAdmin = admin?.adminType === 'super_admin';
-    const isLocalAdmin = admin?.adminType === 'local_admin';
     const isBuyerListing = item.listingType === 'buyer';
+    const sellerAdminType = item.sellerAdminType;
+    const sellerAdminStatus = item.sellerAdminStatus;
+    const isApprovedAdmin = sellerAdminStatus === 'approved';
 
     const baseStyle = {
       ...styles.productCard,
       borderWidth: 2,
     };
 
-    if (isAdminApproved && isSuperAdmin) {
+    if (isApprovedAdmin && sellerAdminType === 'super_admin') {
       const glowColor = isBuyerListing ? 'rgba(239, 68, 68, ' : 'rgba(34, 197, 94, ';
       return {
         ...baseStyle,
@@ -133,7 +129,7 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress: () => void }) 
       };
     }
 
-    if (isAdminApproved && isLocalAdmin) {
+    if (isApprovedAdmin && sellerAdminType === 'local_admin') {
       const glowColor = isBuyerListing ? 'rgba(239, 68, 68, ' : 'rgba(34, 197, 94, ';
       return {
         ...baseStyle,
