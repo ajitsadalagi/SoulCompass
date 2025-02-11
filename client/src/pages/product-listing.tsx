@@ -455,12 +455,11 @@ export default function ProductListing() {
     </div>
   );
 
-  // Handle mode change
+  // Update the handleModeChange function
   const handleModeChange = (value: 'seller' | 'buyer') => {
     setListingMode(value);
     if (value === 'buyer') {
-      // Navigate to buyer listing page
-      window.location.href = '/buyer-listing';
+      setLocation('/buyer-listing');
     }
   };
 
