@@ -1,14 +1,9 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, Libraries, Marker } from "@react-google-maps/api";
 import { Loader2 } from "lucide-react";
 
-const containerStyle = {
-  width: '100%',
-  height: '100%'
-};
-
 // Define libraries array outside component to prevent unnecessary reloads
-const libraries: Libraries = ["places"];
+const libraries: Libraries = ["places", "geocoding"];
 
 interface MapProps {
   defaultCenter?: google.maps.LatLngLiteral;
@@ -19,39 +14,89 @@ interface MapProps {
   }>;
 }
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const defaultOptions = {
+  fullscreenControl: false,
+  streetViewControl: false,
+  mapTypeControl: false,
+  zoomControl: true,
+  disableDefaultUI: false,
+  gestureHandling: 'cooperative' as const,
+  clickableIcons: false
+};
 
 export function Map({ 
   defaultCenter = { lat: 20.5937, lng: 78.9629 },
   onMapClick,
   markers = []
 }: MapProps) {
-  const mapRef = useRef<google.maps.Map>();
-  const [loadError, setLoadError] = useState<Error | null>(null);
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    libraries,
   });
 
-  const handleLoad = useCallback((map: google.maps.Map) => {
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const options = useMemo(() => ({
+    ...defaultOptions,
+    zoom: 5,
+    center: defaultCenter,
+  }), [defaultCenter]);
+
+  const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
+    setMap(map);
+    setGeocoder(new google.maps.Geocoder());
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    if (mapRef.current) {
+      google.maps.event.clearInstanceListeners(mapRef.current);
+    }
+    mapRef.current = null;
+    setMap(null);
+    setGeocoder(null);
   }, []);
 
   const handleClick = useCallback((e: google.maps.MapMouseEvent) => {
     if (onMapClick && e.latLng) {
-      onMapClick(e.latLng.lat(), e.latLng.lng());
-    }
-  }, [onMapClick]);
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
 
-  if (!GOOGLE_MAPS_API_KEY) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-muted/10 rounded-lg">
-        <p className="text-sm text-muted-foreground">Google Maps API key not configured</p>
-      </div>
-    );
-  }
+      if (geocoder) {
+        geocoder.geocode({ location: { lat, lng } })
+          .then(response => {
+            if (response.results[0]) {
+              onMapClick(lat, lng);
+            } else {
+              setError("No address found for this location");
+            }
+          })
+          .catch(error => {
+            console.error("Geocoding error:", error);
+            // Still allow click if geocoding fails
+            onMapClick(lat, lng);
+          });
+      } else {
+        onMapClick(lat, lng);
+      }
+    }
+  }, [onMapClick, geocoder]);
+
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        onUnmount();
+      }
+    };
+  }, [onUnmount]);
 
   if (loadError) {
     return (
@@ -70,23 +115,22 @@ export function Map({
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
+      {error && (
+        <div className="absolute top-0 left-0 right-0 z-10 bg-destructive/90 text-white p-2 text-sm text-center">
+          {error}
+        </div>
+      )}
       <GoogleMap
         mapContainerStyle={containerStyle}
-        center={defaultCenter}
-        zoom={5}
-        onLoad={handleLoad}
+        options={options}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
         onClick={handleClick}
-        options={{
-          fullscreenControl: false,
-          streetViewControl: false,
-          mapTypeControl: false,
-          zoomControl: true,
-        }}
       >
         {markers.map((marker, index) => (
           <Marker
-            key={index}
+            key={`${marker.position.lat}-${marker.position.lng}-${index}`}
             position={marker.position}
             title={marker.title}
           />
