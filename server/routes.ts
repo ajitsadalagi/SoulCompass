@@ -5,6 +5,8 @@ import { insertProductSchema, insertUserSchema, updateProfileSchema } from "@sha
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertCartItemSchema } from "@shared/schema";
+import { insertCartShareSchema } from "@shared/schema"; // Assuming this schema is defined
+
 
 enum ADMIN_ROLES {
   LOCAL_ADMIN = "local_admin",
@@ -362,6 +364,610 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({
         message: "Failed to process admin request",
         error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // Product routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+
+      // Increment views for each product fetched
+      await Promise.all(
+        products.map(product => storage.incrementProductViews(product.id))
+      );
+
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(500).send("Failed to fetch products");
+    }
+  });
+
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const product = await storage.getProductById(Number(req.params.id));
+      if (!product) {
+        return res.status(404).send("Product not found");
+      }
+
+      // Increment views before returning the product
+      await storage.incrementProductViews(product.id);
+      console.log(`Incremented views for product ${product.id}`);
+
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).send("Failed to fetch product");
+    }
+  });
+
+  app.post("/api/products", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user?.roles.includes("seller")) {
+      return res.status(403).send("Only sellers can create products");
+    }
+
+    try {
+      console.log("Received product data:", req.body);
+      console.log("Creating product for seller:", req.user.id);
+
+      const productData = {
+        ...req.body,
+        availabilityDate: new Date(),
+        // Ensure these are saved as numbers
+        quantity: Number(req.body.quantity),
+        targetPrice: req.body.targetPrice,
+        latitude: req.body.latitude ? Number(req.body.latitude) : null,
+        longitude: req.body.longitude ? Number(req.body.longitude) : null,
+        sellerId: req.user.id,  // Explicitly set the sellerId
+      };
+
+      console.log("Processed product data:", productData);
+
+      // Parse and validate the request data
+      const validatedData = insertProductSchema.parse(productData);
+      console.log("Validated product data:", validatedData);
+
+      if (!validatedData.city || !validatedData.state) {
+        return res.status(400).json({
+          message: "Invalid product data",
+          error: "City and state are required"
+        });
+      }
+
+      // Create the product with the validated data and optional local admin IDs
+      const product = await storage.createProduct({
+        ...validatedData,
+        sellerId: req.user.id,  // Ensure sellerId is set again
+        localAdminIds: req.body.localAdminIds || [],
+      });
+
+      console.log("Created product:", product);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Product creation error:", error);
+      res.status(400).json({
+        message: "Invalid product data",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/products/:id", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user?.roles.includes("seller")) {
+      return res.status(403).json({
+        message: "Only sellers can update products",
+        error: "Permission denied"
+      });
+    }
+
+    try {
+      console.log("Product update request:", {
+        productId: req.params.id,
+        userId: req.user?.id,
+        data: req.body
+      });
+
+      const productId = Number(req.params.id);
+      const product = await storage.getProductById(productId);
+
+      if (!product) {
+        console.log("Product not found:", productId);
+        return res.status(404).json({
+          message: "Product not found",
+          error: "Invalid product ID"
+        });
+      }
+
+      if (product.sellerId !== req.user?.id) {
+        console.log("Unauthorized update attempt:", {
+          productSeller: product.sellerId,
+          requestingUser: req.user.id
+        });
+        return res.status(403).json({
+          message: "You can only update your own products",
+          error: "Permission denied"
+        });
+      }
+
+      // Validate update data
+      const validatedData = insertProductSchema.partial().parse({
+        ...req.body,
+        quantity: Number(req.body.quantity),
+        targetPrice: Number(req.body.targetPrice),
+      });
+
+      console.log("Validated update data:", validatedData);
+
+      // Update the product
+      const updatedProduct = await storage.updateProduct(productId, validatedData);
+
+      if (!updatedProduct) {
+        console.log("Failed to update product:", productId);
+        return res.status(500).json({
+          message: "Failed to update product",
+          error: "Database update failed"
+        });
+      }
+
+      console.log("Product updated successfully:", updatedProduct);
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      res.status(400).json({
+        message: "Failed to update product",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/products/:id", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user?.roles.includes("seller")) {
+      return res.status(403).send("Only sellers can delete products");
+    }
+
+    try {
+      const product = await storage.getProductById(Number(req.params.id));
+
+      if (!product) {
+        return res.status(404).send("Product not found");
+      }
+
+      if (product.sellerId !== req.user?.id) {
+        return res.status(403).send("You can only delete your own products");
+      }
+
+      await storage.deleteProduct(product.id);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).send("Failed to delete product");
+    }
+  });
+
+  app.post("/api/products/:id/contact", async (req, res) => {
+    console.log("Contact seller request received for product:", req.params.id);
+    console.log("User making request:", req.user);
+    console.log("Authentication status:", req.isAuthenticated());
+
+    if (!req.isAuthenticated()) {
+      console.log("Unauthorized contact attempt - user not authenticated");
+      return res.status(401).json({
+        message: "Must be logged in to contact sellers",
+        error: "Authentication required"
+      });
+    }
+
+    if (!req.user?.roles.includes("buyer")) {
+      console.log("Unauthorized contact attempt - user not a buyer");
+      return res.status(403).json({
+        message: "Only buyers can contact sellers",
+        error: "Invalid role"
+      });
+    }
+
+    try {
+      const product = await storage.getProductById(Number(req.params.id));
+      if (!product) {
+        console.log("Product not found:", req.params.id);
+        return res.status(404).json({
+          message: "Product not found",
+          error: "Invalid product ID"
+        });
+      }
+
+      console.log("Found product:", product);
+      console.log("Attempting to find seller with ID:", product.sellerId);
+
+      // Get seller information
+      const seller = await storage.getUser(product.sellerId);
+      if (!seller) {
+        console.log("Seller not found for product:", product.id, "seller ID:", product.sellerId);
+        return res.status(404).json({
+          message: "Seller information not available",
+          error: "Seller no longer exists"
+        });
+      }
+
+      console.log("Found seller:", seller.id, seller.username);
+
+      console.log("Incrementing contact requests for product:", product.id);
+      await storage.incrementContactRequests(product.id);
+
+      console.log("Contact request processed successfully");
+      res.status(200).json({
+        message: "Contact request processed successfully",
+        seller: {
+          name: seller.username,  // Always use username as fallback
+          mobileNumber: seller.mobileNumber,
+        }
+      });
+    } catch (error) {
+      console.error("Error handling contact request:", error);
+      res.status(500).json({
+        message: "Failed to process contact request",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/user", requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        console.log("Delete attempt without authentication");
+        return res.status(401).json({
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+
+      // Get the target user ID from the query params
+      const targetUserId = Number(req.query.userId) || req.user.id;
+
+      // Only allow deletion if:
+      // 1. User is deleting their own account OR
+      // 2. The request is from masteradmin123
+      if (targetUserId !== req.user.id &&
+          !(req.user.username === "masteradmin123" && req.user.adminType === "master_admin")) {
+        console.log("Unauthorized deletion attempt:", {
+          requestingUser: req.user.username,
+          targetUserId,
+          adminType: req.user.adminType
+        });
+        return res.status(403).json({
+          message: "Only masteradmin123 or the user themselves can delete an account",
+          code: "UNAUTHORIZED_DELETION"
+        });
+      }
+
+      // Prevent deletion of master admin account
+      const targetUser = await storage.getUser(targetUserId);
+      if (targetUser?.username === "masteradmin123") {
+        console.log("Attempted to delete masteradmin123 account:", targetUserId);
+        return res.status(403).json({
+          message: "The masteradmin123 account cannot be deleted",
+          code: "MASTER_ADMIN_DELETION_FORBIDDEN"
+        });
+      }
+
+      console.log("Deleting user account:", targetUserId);
+
+      // Delete the user
+      await storage.deleteUser(targetUserId);
+
+      // If user is deleting their own account, destroy the session
+      if (targetUserId === req.user.id) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error("Error destroying session:", err);
+            return res.status(500).json({
+              message: "Error during logout",
+              code: "SESSION_DESTROY_ERROR"
+            });
+          }
+          res.clearCookie('sessionId').sendStatus(200);
+        });
+      } else {
+        // If masteradmin123 is deleting another user
+        res.sendStatus(200);
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({
+        message: "Failed to delete account",
+        error: error instanceof Error ? error.message : String(error),
+        code: "DELETE_ACCOUNT_ERROR"
+      });
+    }
+  });
+
+  // Add new PATCH endpoint for updating user profile
+  app.patch("/api/user", requireAuth, async (req, res) => {
+    try {
+      console.log("Update profile request:", req.body);
+
+      if (!req.user) {
+        return res.status(401).json({
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+
+      // Validate request data
+      const validatedData = updateProfileSchema.parse(req.body);
+      console.log("Validated profile data:", validatedData);
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(req.user.id, validatedData);
+      if (!updatedUser) {
+        return res.status(404).json({
+          message: "User not found",
+          code: "USER_NOT_FOUND"
+        });
+      }
+
+      // Update session with new user data
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Session update error:", err);
+          return res.status(500).json({
+            message: "Failed to update session",
+            code: "SESSION_UPDATE_ERROR"
+          });
+        }
+        console.log("Profile updated successfully for user:", updatedUser.id);
+        res.json(updatedUser);
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(400).json({
+        message: "Failed to update profile",
+        error: error instanceof Error ? error.message : String(error),
+        code: "UPDATE_PROFILE_ERROR"
+      });
+    }
+  });
+
+  // Get products by seller ID
+  app.get("/api/products/seller/:id", requireAuth, async (req, res) => {
+    try {
+      const sellerId = Number(req.params.id);
+      const products = await storage.getProductsBySellerId(sellerId);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching seller products:", error);
+      res.status(500).send("Failed to fetch seller products");
+    }
+  });
+
+  // Update register route to handle master admin creation
+  app.post("/api/register", async (req, res, next) => {
+    try {
+      console.log("Registration attempt for:", req.body.username);
+
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).json({
+          message: "Username already exists",
+          code: "USERNAME_EXISTS"
+        });
+      }
+
+      // Special handling for master admin
+      if (req.body.username === "masteradmin123") {
+        const user = await storage.createUser({
+          ...req.body,
+          roles: ["master_admin"],
+          adminType: "master_admin",
+          adminStatus: "approved"
+        });
+
+        console.log("Serializing master admin user:", user.id);
+        req.login(user, (err) => {
+          if (err) return next(err);
+          console.log("Master admin registered and logged in:", user.id);
+          res.status(201).json(user);
+        });
+        return;
+      }
+
+      // Normal user registration
+      const user = await storage.createUser({
+        ...req.body,
+        roles: req.body.roles || ["buyer"],
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(400).json({
+        message: "Failed to register user",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Cart routes
+  app.get("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const cartItems = await storage.getCartItems(req.user!.id);
+      res.json(cartItems);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      res.status(500).json({
+        message: "Failed to fetch cart items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCartItemSchema.parse({
+        productId: req.body.productId,
+        quantity: req.body.quantity
+      });
+
+      const cartItem = await storage.addCartItem(req.user!.id, validatedData);
+      res.status(201).json(cartItem);
+    } catch (error) {
+      console.error("Error adding item to cart:", error);
+      res.status(400).json({
+        message: "Failed to add item to cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      const quantity = Number(req.body.quantity);
+
+      if (isNaN(productId) || isNaN(quantity)) {
+        return res.status(400).json({
+          message: "Invalid product ID or quantity",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      const cartItem = await storage.updateCartItemQuantity(
+        req.user!.id,
+        productId,
+        quantity
+      );
+
+      if (!cartItem && quantity > 0) {
+        return res.status(404).json({
+          message: "Cart item not found",
+          error: "ITEM_NOT_FOUND"
+        });
+      }
+
+      res.json(cartItem || { removed: true });
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(500).json({
+        message: "Failed to update cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({
+          message: "Invalid product ID",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      await storage.removeCartItem(req.user!.id, productId);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error removing cart item:", error);
+      res.status(500).json({
+        message: "Failed to remove cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart", requireAuth, async (req, res) => {
+    try {
+      await storage.clearCart(req.user!.id);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({
+        message: "Failed to clear cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Cart sharing routes
+  app.post("/api/cart/share", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCartShareSchema.parse(req.body);
+
+      // Check if target user exists
+      const targetUser = await storage.getUser(validatedData.sharedWithUserId);
+      if (!targetUser) {
+        return res.status(404).json({
+          message: "User not found",
+          error: "TARGET_USER_NOT_FOUND"
+        });
+      }
+
+      // Create share
+      const share = await storage.shareCart(req.user!.id, validatedData);
+      res.status(201).json(share);
+    } catch (error) {
+      console.error("Error sharing cart:", error);
+      res.status(400).json({
+        message: "Failed to share cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/cart/shared", requireAuth, async (req, res) => {
+    try {
+      const sharedCarts = await storage.getSharedCarts(req.user!.id);
+      res.json(sharedCarts);
+    } catch (error) {
+      console.error("Error fetching shared carts:", error);
+      res.status(500).json({
+        message: "Failed to fetch shared carts",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/cart/shares/pending", requireAuth, async (req, res) => {
+    try {
+      const pendingShares = await storage.getPendingCartShares(req.user!.id);
+      res.json(pendingShares);
+    } catch (error) {
+      console.error("Error fetching pending cart shares:", error);
+      res.status(500).json({
+        message: "Failed to fetch pending cart shares",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/cart/shares/:shareId/:action", requireAuth, async (req, res) => {
+    try {
+      const { shareId, action } = req.params;
+
+      if (!["accept", "reject"].includes(action)) {
+        return res.status(400).json({
+          message: "Invalid action",
+          error: "INVALID_ACTION"
+        });
+      }
+
+      const status = action === "accept" ? "accepted" : "rejected";
+      const share = await storage.updateCartShareStatus(
+        Number(shareId),
+        req.user!.id,
+        status
+      );
+
+      res.json(share);
+    } catch (error) {
+      console.error("Error updating cart share:", error);
+      res.status(500).json({
+        message: "Failed to update cart share",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });

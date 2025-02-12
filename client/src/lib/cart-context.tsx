@@ -20,8 +20,25 @@ interface CartItem {
   image?: string;
 }
 
+interface SharedCart {
+  owner: {
+    id: number;
+    username: string;
+    mobileNumber?: string;
+  };
+  items: CartItem[];
+}
+
 interface CartContextType {
   items: CartItem[];
+  sharedCarts: SharedCart[];
+  pendingShares: {
+    id: number;
+    owner: {
+      id: number;
+      username: string;
+    };
+  }[];
   addItem: (item: CartItem) => void;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
@@ -29,6 +46,8 @@ interface CartContextType {
   totalItems: number;
   totalPrice: number;
   addToCart: (product: Product) => void;
+  shareCart: (userId: number) => void;
+  respondToShare: (shareId: number, action: 'accept' | 'reject') => void;
   isLoading: boolean;
 }
 
@@ -62,6 +81,71 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     enabled: !!user?.id,
+  });
+
+  // Fetch shared carts
+  const { data: sharedCarts = [] } = useQuery({
+    queryKey: ['shared-carts', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const response = await apiRequest('GET', '/api/cart/shared');
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch pending shares
+  const { data: pendingShares = [] } = useQuery({
+    queryKey: ['pending-shares', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const response = await apiRequest('GET', '/api/cart/shares/pending');
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  // Share cart mutation
+  const shareCartMutation = useMutation({
+    mutationFn: async (sharedWithUserId: number) => {
+      const response = await apiRequest('POST', '/api/cart/share', {
+        sharedWithUserId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+      toast({
+        title: "Cart Shared",
+        description: "Your cart has been shared successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to share cart",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Respond to share mutation
+  const respondToShareMutation = useMutation({
+    mutationFn: async ({ shareId, action }: { shareId: number; action: 'accept' | 'reject' }) => {
+      const response = await apiRequest('POST', `/api/cart/shares/${shareId}/${action}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-shares', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to respond to share request",
+        variant: "destructive",
+      });
+    },
   });
 
   // Add item mutation
@@ -188,6 +272,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     clearCartMutation.mutate();
   };
 
+  const shareCart = (userId: number) => {
+    shareCartMutation.mutate(userId);
+  };
+
+  const respondToShare = (shareId: number, action: 'accept' | 'reject') => {
+    respondToShareMutation.mutate({ shareId, action });
+  };
+
   const addToCart = (product: Product) => {
     if (!user?.id) {
       toast({
@@ -216,11 +308,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addItem(cartItem);
   };
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalItems = items.reduce((sum: number, item) => sum + item.quantity, 0);
+  const totalPrice = items.reduce((sum: number, item) => sum + (item.price * item.quantity), 0);
 
   const value = {
     items,
+    sharedCarts,
+    pendingShares,
     addItem,
     removeItem,
     updateQuantity,
@@ -228,6 +322,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     totalItems,
     totalPrice,
     addToCart,
+    shareCart,
+    respondToShare,
     isLoading,
   };
 

@@ -1,5 +1,5 @@
-import { ADMIN_ROLES, ADMIN_STATUSES, type User, type InsertUser, type Product, type ProductAdmin, type InsertProduct } from "@shared/schema";
-import { users, products, productAdmins, cartItems, type CartItem, type InsertCartItem } from "@shared/schema";
+import { ADMIN_ROLES, ADMIN_STATUSES, type User, type InsertUser, type Product, type ProductAdmin, type InsertProduct, type CartShare, type InsertCartShare } from "@shared/schema";
+import { users, products, productAdmins, cartItems, cartShares, type CartItem, type InsertCartItem } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, asc, sql } from "drizzle-orm";
 import session from "express-session";
@@ -40,6 +40,11 @@ export interface IStorage {
   updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined>;
   removeCartItem(userId: number, productId: number): Promise<void>;
   clearCart(userId: number): Promise<void>;
+  // Cart sharing methods
+  shareCart(ownerUserId: number, shareData: InsertCartShare): Promise<CartShare>;
+  getSharedCarts(userId: number): Promise<{ owner: User, items: (CartItem & { product: Product })[] }[]>;
+  getPendingCartShares(userId: number): Promise<(CartShare & { owner: User })[]>;
+  updateCartShareStatus(shareId: number, userId: number, status: "accepted" | "rejected"): Promise<CartShare>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -499,6 +504,83 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(cartItems)
       .where(eq(cartItems.userId, userId));
+  }
+
+  async shareCart(ownerUserId: number, shareData: InsertCartShare): Promise<CartShare> {
+    const [share] = await db.insert(cartShares)
+      .values({
+        ownerUserId,
+        sharedWithUserId: shareData.sharedWithUserId,
+        createdAt: new Date(),
+      })
+      .returning();
+    return share;
+  }
+
+  async getSharedCarts(userId: number): Promise<{ owner: User, items: (CartItem & { product: Product })[] }[]> {
+    // Get all accepted shares where this user is the recipient
+    const shares = await db.select()
+      .from(cartShares)
+      .where(
+        and(
+          eq(cartShares.sharedWithUserId, userId),
+          eq(cartShares.status, "accepted")
+        )
+      );
+
+    // For each share, get the owner's cart items
+    const sharedCarts = await Promise.all(
+      shares.map(async (share) => {
+        const owner = await this.getUser(share.ownerUserId);
+        const items = await this.getCartItems(share.ownerUserId);
+        return {
+          owner: owner!,
+          items
+        };
+      })
+    );
+
+    return sharedCarts;
+  }
+
+  async getPendingCartShares(userId: number): Promise<(CartShare & { owner: User })[]> {
+    const shares = await db.select()
+      .from(cartShares)
+      .where(
+        and(
+          eq(cartShares.sharedWithUserId, userId),
+          eq(cartShares.status, "pending")
+        )
+      );
+
+    // Get owner information for each share
+    const sharesWithOwners = await Promise.all(
+      shares.map(async (share) => {
+        const owner = await this.getUser(share.ownerUserId);
+        return {
+          ...share,
+          owner: owner!
+        };
+      })
+    );
+
+    return sharesWithOwners;
+  }
+
+  async updateCartShareStatus(shareId: number, userId: number, status: "accepted" | "rejected"): Promise<CartShare> {
+    const [share] = await db.update(cartShares)
+      .set({
+        status,
+        updatedAt: new Date()
+      })
+      .where(
+        and(
+          eq(cartShares.id, shareId),
+          eq(cartShares.sharedWithUserId, userId)
+        )
+      )
+      .returning();
+    return share;
   }
 }
 
