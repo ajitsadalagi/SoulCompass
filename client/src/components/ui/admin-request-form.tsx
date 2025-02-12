@@ -18,7 +18,7 @@ export function AdminRequestForm() {
   // Query for super admins (for local admin requests)
   const { data: superAdmins, isError: isSuperAdminsError } = useQuery<User[]>({
     queryKey: ["/api/admin/super-admins"],
-    enabled: !!user,
+    enabled: !!user && user.adminType === "local_admin" && user.adminStatus === "registered",
   });
 
   const adminRequestMutation = useMutation({
@@ -72,7 +72,7 @@ export function AdminRequestForm() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Badge variant="secondary">
-                Pending {user.adminType} Approval
+                Pending {user.adminType === "super_admin" ? "Super Admin" : "Local Admin"} Approval
               </Badge>
               <span className="text-sm text-muted-foreground">
                 Requested: {new Date(user.adminRequestDate!).toLocaleDateString()}
@@ -117,7 +117,7 @@ export function AdminRequestForm() {
     );
   }
 
-  // Show registration options if user hasn't registered for any admin role or has no admin type
+  // Show registration options if user has no admin type or is none
   if (!user.adminType || user.adminType === "none") {
     return (
       <Card>
