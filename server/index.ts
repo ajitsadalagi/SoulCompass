@@ -37,29 +37,73 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = registerRoutes(app);
+  let activeServer = registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
-    await setupVite(app, server);
+    await setupVite(app, activeServer);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
+  // Try to start the server with graceful error handling
+  const startServer = async (port: number): Promise<void> => {
+    try {
+      // Close any existing server
+      if (activeServer.listening) {
+        await new Promise((resolve) => activeServer.close(resolve));
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        activeServer = registerRoutes(app);
+        activeServer.listen(port, "0.0.0.0", () => {
+          log(`Server started successfully on port ${port}`);
+          resolve();
+        }).on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            log(`Port ${port} is in use`);
+            reject(new Error(`Port ${port} is in use`));
+          } else {
+            reject(err);
+          }
+        });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Port')) {
+        if (port < 5010) {
+          log(`Attempting to start on port ${port + 1}`);
+          await startServer(port + 1);
+        } else {
+          throw new Error('No available ports found between 5000 and 5010');
+        }
+      } else {
+        throw error;
+      }
+    }
+  };
+
+  const gracefulShutdown = async () => {
+    log('Received shutdown signal');
+    if (activeServer.listening) {
+      await new Promise((resolve) => activeServer.close(resolve));
+      log('Server closed gracefully');
+    }
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+
+  try {
+    await startServer(5000);
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
 })();
