@@ -46,7 +46,7 @@ interface CartContextType {
   totalItems: number;
   totalPrice: number;
   addToCart: (product: Product) => void;
-  shareCart: (userId: number) => void;
+  shareCart: (username: string) => void;
   respondToShare: (shareId: number, action: 'accept' | 'reject') => void;
   isLoading: boolean;
 }
@@ -58,7 +58,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch cart items from the database
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['cart', user?.id],
     queryFn: async () => {
@@ -83,7 +82,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     enabled: !!user?.id,
   });
 
-  // Fetch shared carts
   const { data: sharedCarts = [] } = useQuery({
     queryKey: ['shared-carts', user?.id],
     queryFn: async () => {
@@ -94,7 +92,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     enabled: !!user?.id,
   });
 
-  // Fetch pending shares
   const { data: pendingShares = [] } = useQuery({
     queryKey: ['pending-shares', user?.id],
     queryFn: async () => {
@@ -105,11 +102,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     enabled: !!user?.id,
   });
 
-  // Share cart mutation
   const shareCartMutation = useMutation({
-    mutationFn: async (sharedWithUserId: number) => {
+    mutationFn: async (username: string) => {
       const response = await apiRequest('POST', '/api/cart/share', {
-        sharedWithUserId,
+        username,
       });
       return response.json();
     },
@@ -129,7 +125,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Respond to share mutation
   const respondToShareMutation = useMutation({
     mutationFn: async ({ shareId, action }: { shareId: number; action: 'accept' | 'reject' }) => {
       const response = await apiRequest('POST', `/api/cart/shares/${shareId}/${action}`);
@@ -148,7 +143,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Add item mutation
   const addItemMutation = useMutation({
     mutationFn: async (item: CartItem) => {
       const response = await apiRequest('POST', '/api/cart', {
@@ -169,7 +163,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Remove item mutation
   const removeItemMutation = useMutation({
     mutationFn: async (productId: number) => {
       await apiRequest('DELETE', `/api/cart/${productId}`);
@@ -186,7 +179,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Update quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ productId, quantity }: { productId: number; quantity: number }) => {
       const response = await apiRequest('PATCH', `/api/cart/${productId}`, { quantity });
@@ -204,7 +196,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Clear cart mutation
   const clearCartMutation = useMutation({
     mutationFn: async () => {
       await apiRequest('DELETE', '/api/cart');
@@ -272,8 +263,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     clearCartMutation.mutate();
   };
 
-  const shareCart = (userId: number) => {
-    shareCartMutation.mutate(userId);
+  const shareCart = (username: string) => {
+    shareCartMutation.mutate(username);
   };
 
   const respondToShare = (shareId: number, action: 'accept' | 'reject') => {

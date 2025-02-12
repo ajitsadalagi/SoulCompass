@@ -57,7 +57,7 @@ export default function CartPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [shareUserId, setShareUserId] = useState("");
+  const [shareUsername, setShareUsername] = useState("");
 
   // Redirect to auth page if not logged in
   if (!user) {
@@ -91,17 +91,16 @@ export default function CartPage() {
   };
 
   const handleShareCart = () => {
-    const userId = parseInt(shareUserId);
-    if (isNaN(userId)) {
+    if (!shareUsername.trim()) {
       toast({
-        title: "Invalid User ID",
-        description: "Please enter a valid user ID",
+        title: "Invalid Username",
+        description: "Please enter a valid username",
         variant: "destructive",
       });
       return;
     }
-    shareCart(userId);
-    setShareUserId("");
+    shareCart(shareUsername.trim());
+    setShareUsername("");
   };
 
   const handleContactSeller = async (productId: number) => {
@@ -285,15 +284,15 @@ export default function CartPage() {
                 <DialogHeader>
                   <DialogTitle>Share Your Cart</DialogTitle>
                   <DialogDescription>
-                    Enter the user ID of the person you want to share your cart with.
+                    Enter the username of the person you want to share your cart with.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex gap-2">
                   <Input
-                    type="number"
-                    placeholder="User ID"
-                    value={shareUserId}
-                    onChange={(e) => setShareUserId(e.target.value)}
+                    type="text"
+                    placeholder="Username"
+                    value={shareUsername}
+                    onChange={(e) => setShareUsername(e.target.value)}
                   />
                   <Button onClick={handleShareCart}>Share</Button>
                 </div>

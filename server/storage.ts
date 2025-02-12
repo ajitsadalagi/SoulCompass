@@ -41,7 +41,7 @@ export interface IStorage {
   removeCartItem(userId: number, productId: number): Promise<void>;
   clearCart(userId: number): Promise<void>;
   // Cart sharing methods
-  shareCart(ownerUserId: number, shareData: InsertCartShare): Promise<CartShare>;
+  shareCart(ownerUserId: number, shareData: { username: string }): Promise<CartShare>;
   getSharedCarts(userId: number): Promise<{ owner: User, items: (CartItem & { product: Product })[] }[]>;
   getPendingCartShares(userId: number): Promise<(CartShare & { owner: User })[]>;
   updateCartShareStatus(shareId: number, userId: number, status: "accepted" | "rejected"): Promise<CartShare>;
@@ -506,11 +506,20 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cartItems.userId, userId));
   }
 
-  async shareCart(ownerUserId: number, shareData: InsertCartShare): Promise<CartShare> {
+  async shareCart(ownerUserId: number, shareData: { username: string }): Promise<CartShare> {
+    // First, find the user by username
+    const [targetUser] = await db.select()
+      .from(users)
+      .where(eq(users.username, shareData.username));
+
+    if (!targetUser) {
+      throw new Error("User not found");
+    }
+
     const [share] = await db.insert(cartShares)
       .values({
         ownerUserId,
-        sharedWithUserId: shareData.sharedWithUserId,
+        sharedWithUserId: targetUser.id,
         createdAt: new Date(),
       })
       .returning();
