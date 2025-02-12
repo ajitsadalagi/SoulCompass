@@ -157,7 +157,10 @@ export default function AdminManagementPage() {
   // Filter admin users based on search query and admin type
   const filteredAdmins = adminUsers?.filter(admin => {
     const searchLower = searchQuery.toLowerCase();
-    const nameLower = (admin.name || admin.username).toLowerCase();
+    const displayName = admin.firstName && admin.lastName
+      ? `${admin.firstName} ${admin.lastName}`
+      : admin.username;
+    const nameLower = displayName.toLowerCase();
     const locationLower = (admin.location || "").toLowerCase();
     const matchesSearch = nameLower.includes(searchLower) || locationLower.includes(searchLower);
 
@@ -278,7 +281,11 @@ export default function AdminManagementPage() {
                       <div className="flex justify-between items-start mb-4">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-lg">{request.name || request.username}</h3>
+                            <h3 className="font-medium text-lg">
+                              {request.firstName && request.lastName
+                                ? `${request.firstName} ${request.lastName}`
+                                : request.username}
+                            </h3>
                             {getAdminTypeBadge(request.adminType)}
                           </div>
                           <div className="space-y-1">
@@ -374,7 +381,11 @@ export default function AdminManagementPage() {
                         className="p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{admin.name || admin.username}</h3>
+                          <h3 className="font-semibold">
+                            {admin.firstName && admin.lastName
+                              ? `${admin.firstName} ${admin.lastName}`
+                              : admin.username}
+                          </h3>
                           {getAdminTypeBadge(admin.adminType)}
                         </div>
                         {admin.location && (

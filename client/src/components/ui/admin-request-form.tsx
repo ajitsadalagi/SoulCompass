@@ -180,7 +180,7 @@ export function AdminRequestForm() {
                         {superAdmins.map((admin) => (
                           <SelectItem key={admin.id} value={admin.id.toString()}>
                             <div className="flex flex-col">
-                              <span>{admin.name || admin.username}</span>
+                              <span>{admin.firstName && admin.lastName ? `${admin.firstName} ${admin.lastName}` : admin.username}</span>
                               {admin.location && (
                                 <span className="text-xs text-muted-foreground">{admin.location}</span>
                               )}
