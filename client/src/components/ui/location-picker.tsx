@@ -1,20 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { LoadScript, Libraries } from "@react-google-maps/api";
 import { Button } from "./button";
 import { Card } from "./card";
 import { FiNavigation } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertCircle } from "lucide-react";
-import { Libraries } from "@react-google-maps/api";
 import { Alert, AlertDescription } from "./alert";
 
-// Declare the ImportMeta interface augmentation
-declare interface ImportMetaEnv {
-  readonly VITE_GOOGLE_MAPS_API_KEY: string
-}
+const containerStyle = {
+  width: '100%',
+  height: '300px'
+};
 
-declare interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
+const libraries: Libraries = ["places"];
 
 interface LocationPickerProps {
   defaultLocation?: {
@@ -40,143 +38,94 @@ export function LocationPicker({
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [mapsLoadError, setMapsLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const { toast } = useToast();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const libraries: Libraries = ["places"];
 
-  // Validate API key before proceeding
-  useEffect(() => {
-    if (!apiKey) {
-      setMapsLoadError("Google Maps API key is missing. Please check your environment configuration.");
-      setIsLoading(false);
-    }
-  }, [apiKey]);
+  const handleLoad = useCallback((map: google.maps.Map) => {
+    if (!mapRef.current) return;
 
-  const initializeMap = async () => {
-    if (!mapRef.current || !window.google?.maps) {
-      console.error("Map ref or Google Maps not available");
-      return;
-    }
+    setMap(map);
+    const initialLocation = defaultLocation || {
+      latitude: 20.5937,
+      longitude: 78.9629
+    };
 
-    try {
-      const initialLocation = defaultLocation || {
-        latitude: 20.5937,
-        longitude: 78.9629
-      };
+    const markerInstance = new google.maps.Marker({
+      map: map,
+      draggable: true,
+      position: {
+        lat: initialLocation.latitude,
+        lng: initialLocation.longitude,
+      },
+      animation: google.maps.Animation.DROP,
+    });
 
-      const mapInstance = new google.maps.Map(mapRef.current, {
-        center: {
-          lat: initialLocation.latitude,
-          lng: initialLocation.longitude,
-        },
-        zoom: 5,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        gestureHandling: "greedy",
-      });
+    map.addListener("click", async (event: google.maps.MapMouseEvent) => {
+      if (!event.latLng) return;
 
-      const markerInstance = new google.maps.Marker({
-        map: mapInstance,
-        draggable: true,
-        position: {
-          lat: initialLocation.latitude,
-          lng: initialLocation.longitude,
-        },
-        animation: google.maps.Animation.DROP,
-      });
+      const clickedLocation = event.latLng;
+      markerInstance.setPosition(clickedLocation);
 
-      mapInstance.addListener("click", async (event: google.maps.MapMouseEvent) => {
-        if (!event.latLng) return;
+      try {
+        const geocoder = new google.maps.Geocoder();
+        const result = await geocoder.geocode({ location: clickedLocation });
 
-        const clickedLocation = event.latLng;
-        markerInstance.setPosition(clickedLocation);
-
-        try {
-          const geocoder = new google.maps.Geocoder();
-          const result = await geocoder.geocode({ location: clickedLocation });
-
-          if (result.results[0]) {
-            onLocationSelect({
-              latitude: clickedLocation.lat(),
-              longitude: clickedLocation.lng(),
-              address: result.results[0].formatted_address,
-            });
-          }
-        } catch (error) {
-          console.error('Geocoding error:', error);
-          toast({
-            title: "Error",
-            description: "Failed to get address for selected location",
-            variant: "destructive",
+        if (result.results[0]) {
+          onLocationSelect({
+            latitude: clickedLocation.lat(),
+            longitude: clickedLocation.lng(),
+            address: result.results[0].formatted_address,
           });
         }
-      });
-
-      markerInstance.addListener("dragend", async () => {
-        const position = markerInstance.getPosition();
-        if (!position) return;
-
-        try {
-          const geocoder = new google.maps.Geocoder();
-          const result = await geocoder.geocode({ location: position });
-
-          if (result.results[0]) {
-            onLocationSelect({
-              latitude: position.lat(),
-              longitude: position.lng(),
-              address: result.results[0].formatted_address,
-            });
-          }
-        } catch (error) {
-          console.error('Geocoding error:', error);
-          toast({
-            title: "Error",
-            description: "Failed to get address for selected location",
-            variant: "destructive",
-          });
-        }
-      });
-
-      setMap(mapInstance);
-      setMarker(markerInstance);
-      setIsLoading(false);
-
-      if (onMapLoad) {
-        onMapLoad(mapInstance);
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to get address for selected location",
+          variant: "destructive",
+        });
       }
+    });
 
-      if (initialLocation) {
-        try {
-          const geocoder = new google.maps.Geocoder();
-          const result = await geocoder.geocode({
-            location: {
-              lat: initialLocation.latitude,
-              lng: initialLocation.longitude
-            }
+    markerInstance.addListener("dragend", async () => {
+      const position = markerInstance.getPosition();
+      if (!position) return;
+
+      try {
+        const geocoder = new google.maps.Geocoder();
+        const result = await geocoder.geocode({ location: position });
+
+        if (result.results[0]) {
+          onLocationSelect({
+            latitude: position.lat(),
+            longitude: position.lng(),
+            address: result.results[0].formatted_address,
           });
-          if (result.results[0]) {
-            onLocationSelect({
-              latitude: initialLocation.latitude,
-              longitude: initialLocation.longitude,
-              address: result.results[0].formatted_address,
-            });
-          }
-        } catch (error) {
-          console.error('Initial geocoding error:', error);
         }
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to get address for selected location",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error initializing map:", error);
-      setIsLoading(false);
-      toast({
-        title: "Error",
-        description: "Failed to initialize map. Please try again.",
-        variant: "destructive",
-      });
+    });
+
+    setMarker(markerInstance);
+    setIsLoading(false);
+
+    if (onMapLoad) {
+      onMapLoad(map);
     }
-  };
+  }, [defaultLocation, onLocationSelect, onMapLoad, toast]);
+
+  const handleLoadError = useCallback((error: Error) => {
+    console.error("Error loading Google Maps:", error);
+    setLoadError(error);
+    setIsLoading(false);
+  }, []);
 
   const handleGetCurrentLocation = async () => {
     setIsLoadingLocation(true);
@@ -229,60 +178,13 @@ export function LocationPicker({
     }
   };
 
-  useEffect(() => {
-    if (!mapRef.current || !apiKey) return;
-
-    const loadGoogleMaps = () => {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-
-      script.onload = () => {
-        initializeMap();
-      };
-
-      script.onerror = () => {
-        setIsLoading(false);
-        setMapsLoadError("Failed to load Google Maps. Please check your internet connection and try again.");
-      };
-
-      document.head.appendChild(script);
-    };
-
-    if (window.google?.maps) {
-      initializeMap();
-    } else {
-      loadGoogleMaps();
-    }
-
-    return () => {
-      if (map) {
-        const mapElement = mapRef.current;
-        if (mapElement && mapElement.firstChild) {
-          mapElement.removeChild(mapElement.firstChild);
-        }
-      }
-    };
-  }, [defaultLocation]);
-
-  if (mapsLoadError) {
+  if (!apiKey) {
     return (
       <Card className="p-4">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{mapsLoadError}</AlertDescription>
+          <AlertDescription>Google Maps API key is missing. Please check your environment configuration.</AlertDescription>
         </Alert>
-      </Card>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Card className="p-4">
-        <div className="h-[300px] flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
       </Card>
     );
   }
@@ -293,7 +195,21 @@ export function LocationPicker({
         <div className="text-sm text-muted-foreground mb-2">
           Click on the map to select a location or use the button below
         </div>
-        <div ref={mapRef} style={{ height: "300px" }} />
+        <LoadScript
+          googleMapsApiKey={apiKey}
+          libraries={libraries}
+          onError={handleLoadError}
+          onLoad={handleLoad}
+        >
+          <div className="relative">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            )}
+            <div ref={mapRef} style={containerStyle} />
+          </div>
+        </LoadScript>
         <Button
           type="button"
           variant="outline"

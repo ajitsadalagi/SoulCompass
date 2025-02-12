@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { GoogleMap, LoadScript, Libraries } from "@react-google-maps/api";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "./alert";
@@ -30,55 +30,15 @@ export function Map({
 }: MapProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<google.maps.LatLngLiteral | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [mapsLoadError, setMapsLoadError] = useState<string | null>(null);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   const mapRef = useRef<google.maps.Map>();
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager>();
   const circleRef = useRef<google.maps.Circle>();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-  useEffect(() => {
-    if (!apiKey) {
-      setMapsLoadError("Google Maps API key is missing. Please check your environment configuration.");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!defaultCenter) {
-      if (!navigator.geolocation) {
-        setLocationError('Geolocation is not supported by your browser.');
-        setIsLoading(false);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setIsLoading(false);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          setLocationError('Unable to get your location. Please enable location services.');
-          setIsLoading(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    } else {
-      setIsLoading(false);
-    }
-  }, [apiKey, defaultCenter]);
 
   const handleLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
+    setIsLoading(false);
 
     if (onMapLoad) {
       onMapLoad(map);
@@ -162,11 +122,11 @@ export function Map({
     setIsLoading(false);
   }, []);
 
-  if (mapsLoadError) {
+  if (!apiKey) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{mapsLoadError}</AlertDescription>
+        <AlertDescription>Google Maps API key is missing. Please check your environment configuration.</AlertDescription>
       </Alert>
     );
   }
@@ -179,36 +139,34 @@ export function Map({
         </div>
       )}
 
-      {(loadError || locationError) && (
+      {loadError && (
         <Alert variant="destructive" className="absolute inset-x-0 top-0 z-10">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {loadError ? loadError.message : locationError}
+            {loadError.message}
           </AlertDescription>
         </Alert>
       )}
 
-      {!mapsLoadError && apiKey && (
-        <LoadScript 
-          googleMapsApiKey={apiKey}
-          libraries={libraries}
-          onError={handleLoadError}
-        >
-          <div className="w-full h-full">
-            <GoogleMap
-              mapContainerStyle={containerStyle}
-              center={defaultCenter || currentLocation || { lat: 20.5937, lng: 78.9629 }}
-              zoom={defaultCenter || currentLocation ? 15 : 5}
-              onLoad={handleLoad}
-              options={{
-                streetViewControl: false,
-                mapTypeControl: false,
-                fullscreenControl: false,
-              }}
-            />
-          </div>
-        </LoadScript>
-      )}
+      <LoadScript 
+        googleMapsApiKey={apiKey}
+        libraries={libraries}
+        onError={handleLoadError}
+      >
+        <div className="w-full h-full">
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={defaultCenter || { lat: 20.5937, lng: 78.9629 }}
+            zoom={defaultCenter ? 15 : 5}
+            onLoad={handleLoad}
+            options={{
+              streetViewControl: false,
+              mapTypeControl: false,
+              fullscreenControl: false,
+            }}
+          />
+        </div>
+      </LoadScript>
     </div>
   );
 }

@@ -12,6 +12,8 @@ import { useState, useEffect } from "react";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
 import { useCart } from "@/lib/cart-context";
 import { Map } from "@/components/ui/map";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 // Helper function to calculate distance between two points
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -66,7 +68,7 @@ export default function HomePage() {
 
   const { data: products } = useQuery<Product[]>({
     queryKey: ["/api/products"],
-    enabled: !!user && !isLoadingLocation && !locationError,
+    enabled: !!user,
   });
 
   // Contact seller function
@@ -129,28 +131,18 @@ export default function HomePage() {
   useEffect(() => {
     const getLocation = async () => {
       if (!("geolocation" in navigator)) {
-        setLocationError("Your browser doesn't support geolocation");
+        setLocationError("Geolocation is not supported by your browser");
         setIsLoadingLocation(false);
         return;
       }
 
       try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-
-        if (permission.state === 'denied') {
-          throw new Error('Location permission denied. Please enable location services in your browser settings.');
-        }
-
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            reject,
-            {
-              enableHighAccuracy: true,
-              timeout: 5000,
-              maximumAge: 0
-            }
-          );
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
         });
 
         setCurrentLocation({
@@ -159,12 +151,28 @@ export default function HomePage() {
         });
         setLocationError(null);
       } catch (error) {
-        console.error("Error getting location:", error);
-        setLocationError(
-          error instanceof Error
-            ? error.message
-            : "Unable to get your location. Please check your browser settings."
-        );
+        console.error("Geolocation error:", error);
+        let errorMessage = "Unable to get your location. ";
+
+        if (error instanceof GeolocationPositionError) {
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += "Please enable location services in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += "Location information is unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage += "Location request timed out.";
+              break;
+            default:
+              errorMessage += "An unknown error occurred.";
+          }
+        } else {
+          errorMessage += "An unknown error occurred."
+        }
+
+        setLocationError(errorMessage);
       } finally {
         setIsLoadingLocation(false);
       }
@@ -181,7 +189,8 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-6 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin" />
             <p>Loading your location...</p>
           </CardContent>
         </Card>
@@ -191,53 +200,69 @@ export default function HomePage() {
 
   if (locationError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg">
           <CardContent className="p-6">
-            <p className="text-destructive">{locationError}</p>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{locationError}</AlertDescription>
+            </Alert>
+            <Button
+              className="mt-4 w-full"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  const showingProducts = products?.filter(product => {
+    if (!currentLocation || !product.latitude || !product.longitude) {
+      return false;
+    }
+
+    const distance = calculateDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      product.latitude,
+      product.longitude
+    );
+
+    return distance <= 3218.69; // 2 miles in meters
+  });
+
   return (
     <div className="container mx-auto p-8">
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="h-[400px] w-full">
-            <Map
-              defaultCenter={currentLocation || undefined}
-              onMapLoad={(map) => {
-                // Handle map load
-                console.log('Map loaded successfully');
-              }}
-            />
+          <div className="h-[400px] w-full rounded-lg overflow-hidden">
+            {currentLocation && (
+              <Map
+                defaultCenter={currentLocation}
+                onMapLoad={(map) => {
+                  console.log('Map loaded successfully');
+                }}
+              />
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card className="mb-6">
         <CardContent className="p-4">
-          <p>Showing products within 2 miles of your location</p>
+          <p className="text-sm text-muted-foreground">
+            {showingProducts?.length
+              ? `Showing ${showingProducts.length} products within 2 miles of your location`
+              : "No products found within 2 miles of your location"}
+          </p>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products?.filter(product => {
-          if (!currentLocation || !product.latitude || !product.longitude) {
-            return false;
-          }
-
-          const distance = calculateDistance(
-            currentLocation.lat,
-            currentLocation.lng,
-            product.latitude,
-            product.longitude
-          );
-
-          return distance <= 3218.69; // 2 miles in meters
-        })?.map((product) => (
+        {showingProducts?.map((product) => (
           <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
             <CardContent className="p-6">
               <div className="flex items-center gap-4 mb-4">
