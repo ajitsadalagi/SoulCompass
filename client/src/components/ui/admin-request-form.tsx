@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 export function AdminRequestForm() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedSuperAdmin, setSelectedSuperAdmin] = useState<number | null>(null);
+  const [selectedSuperAdmin, setSelectedSuperAdmin] = useState<number | undefined>(undefined);
 
   // Query for super admins (for local admin requests)
   const { data: superAdmins, isError: isSuperAdminsError } = useQuery<User[]>({
@@ -134,7 +134,9 @@ export function AdminRequestForm() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mt-4">
-              Your request is being reviewed by {user.adminType === "super_admin" ? "Master Admin" : "a Super Admin"}
+              {user.adminType === "super_admin" 
+                ? "Your request is being reviewed by the Master Admin" 
+                : "Your request is being reviewed by a Super Admin"}
             </p>
           </div>
         </CardContent>
@@ -205,7 +207,11 @@ export function AdminRequestForm() {
                         {superAdmins.map((admin) => (
                           <SelectItem key={admin.id} value={admin.id.toString()}>
                             <div className="flex flex-col">
-                              <span>{admin.firstName && admin.lastName ? `${admin.firstName} ${admin.lastName}` : admin.username}</span>
+                              <span>
+                                {admin.firstName && admin.lastName 
+                                  ? `${admin.firstName} ${admin.lastName}` 
+                                  : admin.username}
+                              </span>
                               {admin.location && (
                                 <span className="text-xs text-muted-foreground">{admin.location}</span>
                               )}
@@ -237,7 +243,7 @@ export function AdminRequestForm() {
               <Button
                 onClick={() => adminRequestMutation.mutate({
                   adminType: "super_admin",
-                  requestedAdminId: 15, // masteradmin123's ID -  ASSUMPTION:  masteradmin123 has ID 15.  This needs to be adjusted based on your actual data.
+                  requestedAdminId: 15 // masteradmin123's ID
                 })}
                 disabled={adminRequestMutation.isPending}
                 className="w-full"
@@ -257,9 +263,16 @@ export function AdminRequestForm() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <Badge variant="default">
-              Approved {user.adminType === "super_admin" ? "Super Admin" : "Local Admin"}
-            </Badge>
+            {user.adminStatus === "approved" && user.adminType === "super_admin" && (
+              <Badge variant="default" className="bg-yellow-500">
+                Super Administrator
+              </Badge>
+            )}
+            {user.adminStatus === "approved" && user.adminType === "local_admin" && (
+              <Badge variant="default" className="bg-green-500">
+                Local Administrator
+              </Badge>
+            )}
             <p className="mt-2 text-sm text-muted-foreground">
               Approved on: {new Date(user.adminApprovalDate!).toLocaleDateString()}
             </p>

@@ -9,23 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
 export default function AdminManagementPage() {
@@ -71,39 +55,6 @@ export default function AdminManagementPage() {
     queryKey: ["/api/admin/requests"],
     enabled: !!user && (user.adminType === "master_admin" ||
       (user.adminType === "super_admin" && user.adminStatus === "approved")),
-  });
-
-  const requestSuperAdminMutation = useMutation({
-    mutationFn: async () => {
-      const requests = selectedSuperAdmins.map(async (adminId) => {
-        const res = await apiRequest("POST", "/api/admin/request", {
-          adminType: "local_admin",
-          requestedAdminId: adminId,
-        });
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.message || "Failed to send request");
-        }
-        return res.json();
-      });
-      return Promise.all(requests);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/requests"] });
-      toast({
-        title: "Success",
-        description: "Requests sent to selected super admins",
-      });
-      setShowSuperAdminDialog(false);
-      setSelectedSuperAdmins([]);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const approveAdminMutation = useMutation({
@@ -174,7 +125,9 @@ export default function AdminManagementPage() {
       matchesSearch;
   });
 
-  const getAdminTypeBadge = (type: string) => {
+  const getAdminTypeBadge = (type: string, status: string) => {
+    if (status !== "approved") return null;
+
     switch (type) {
       case "master_admin":
         return <Badge className="bg-red-500">Master Admin</Badge>;
@@ -202,67 +155,9 @@ export default function AdminManagementPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Admin Management</h1>
         <div className="text-sm text-muted-foreground flex items-center gap-2">
-          Logged in as: {getAdminTypeBadge(user.adminType)}
+          Logged in as: {getAdminTypeBadge(user.adminType, user.adminStatus)}
         </div>
       </div>
-
-      {user.adminType === "local_admin" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Request Super Admin Approval</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Dialog open={showSuperAdminDialog} onOpenChange={setShowSuperAdminDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  Select Super Admins
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Select Super Admins</DialogTitle>
-                  <DialogDescription>
-                    Choose the super admins you want to send your admin request to.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  {superAdmins?.map((admin) => (
-                    <div key={admin.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`superadmin-${admin.id}`}
-                        checked={selectedSuperAdmins.includes(admin.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedSuperAdmins([...selectedSuperAdmins, admin.id]);
-                          } else {
-                            setSelectedSuperAdmins(
-                              selectedSuperAdmins.filter((id) => id !== admin.id)
-                            );
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={`superadmin-${admin.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {admin.name || admin.username}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-end mt-4">
-                  <Button
-                    onClick={() => requestSuperAdminMutation.mutate()}
-                    disabled={selectedSuperAdmins.length === 0 || requestSuperAdminMutation.isPending}
-                  >
-                    Send Requests
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardContent>
-        </Card>
-      )}
 
       {(user.adminType === "master_admin" || user.adminType === "super_admin") && (
         <>
@@ -286,7 +181,7 @@ export default function AdminManagementPage() {
                                 ? `${request.firstName} ${request.lastName}`
                                 : request.username}
                             </h3>
-                            {getAdminTypeBadge(request.adminType)}
+                            {getAdminTypeBadge(request.adminType, "pending")}
                           </div>
                           <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">
@@ -386,14 +281,14 @@ export default function AdminManagementPage() {
                               ? `${admin.firstName} ${admin.lastName}`
                               : admin.username}
                           </h3>
-                          {getAdminTypeBadge(admin.adminType)}
+                          {getAdminTypeBadge(admin.adminType, admin.adminStatus)}
                         </div>
                         {admin.location && (
                           <p className="text-sm text-muted-foreground mt-1">{admin.location}</p>
                         )}
                         <div className="mt-2 space-y-1">
                           <p className="text-sm">
-                            <span className="font-medium">Role:</span> {admin.adminType}
+                            <span className="font-medium">Status:</span> {admin.adminStatus}
                           </p>
                           <p className="text-sm">
                             <span className="font-medium">Approved:</span>{" "}
