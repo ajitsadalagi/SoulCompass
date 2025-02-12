@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-interface CartItem {
+export interface CartItem {
   id: number;
   name: string;
   price: number;
@@ -49,6 +49,7 @@ interface CartContextType {
   shareCart: (username: string) => void;
   respondToShare: (shareId: number, action: 'accept' | 'reject') => void;
   isLoading: boolean;
+  error: Error | null;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -57,50 +58,106 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [error, setError] = useState<Error | null>(null);
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading: itemsLoading, error: itemsError } = useQuery({
     queryKey: ['cart', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const response = await apiRequest('GET', '/api/cart');
-      const data = await response.json();
-      return data.map((item: any) => ({
-        id: item.product.id,
-        name: item.product.name,
-        price: parseFloat(item.product.targetPrice),
-        quantity: item.quantity,
-        sellerId: item.product.sellerId,
-        quality: item.product.quality,
-        category: item.product.category,
-        city: item.product.city,
-        state: item.product.state,
-        latitude: item.product.latitude,
-        longitude: item.product.longitude,
-        image: item.product.image,
-      }));
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart');
+        const data = await response.json();
+        return data.map((item: any) => ({
+          id: item.product.id,
+          name: item.product.name || '',
+          price: typeof item.product.targetPrice === 'string' ? parseFloat(item.product.targetPrice) : (item.product.targetPrice || 0),
+          quantity: item.quantity || 1,
+          sellerId: item.product.sellerId,
+          quality: item.product.quality || '',
+          category: item.product.category || '',
+          city: item.product.city || '',
+          state: item.product.state || '',
+          latitude: item.product.latitude,
+          longitude: item.product.longitude,
+          image: item.product.image,
+        }));
+      } catch (error) {
+        console.error('Error fetching cart items:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch cart items'));
+        return [];
+      }
     },
     enabled: !!user?.id,
+    retry: 3,
   });
 
-  const { data: sharedCarts = [] } = useQuery({
+  const { data: sharedCarts = [], error: sharedCartsError } = useQuery<SharedCart[]>({
     queryKey: ['shared-carts', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const response = await apiRequest('GET', '/api/cart/shared');
-      return response.json();
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart/shared');
+        const data = await response.json();
+        return data.map((cart: any) => ({
+          owner: {
+            id: cart.owner.id,
+            username: cart.owner.username || '',
+            mobileNumber: cart.owner.mobileNumber || '',
+          },
+          items: (cart.items || []).map((item: any) => ({
+            id: item.id,
+            name: item.name || '',
+            price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
+            quantity: item.quantity || 1,
+            sellerId: item.sellerId,
+            quality: item.quality || '',
+            category: item.category || '',
+            city: item.city || '',
+            state: item.state || '',
+            latitude: item.latitude,
+            longitude: item.longitude,
+            image: item.image,
+          })),
+        }));
+      } catch (error) {
+        console.error('Error fetching shared carts:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch shared carts'));
+        return [];
+      }
     },
     enabled: !!user?.id,
+    retry: 3,
   });
 
-  const { data: pendingShares = [] } = useQuery({
+  const { data: pendingShares = [], error: pendingSharesError } = useQuery({
     queryKey: ['pending-shares', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const response = await apiRequest('GET', '/api/cart/shares/pending');
-      return response.json();
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart/shares/pending');
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching pending shares:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch pending shares'));
+        return [];
+      }
     },
     enabled: !!user?.id,
+    retry: 3,
   });
+
+  // Effect to handle errors from queries
+  useEffect(() => {
+    const currentError = itemsError || sharedCartsError || pendingSharesError;
+    if (currentError) {
+      setError(currentError instanceof Error ? currentError : new Error('An error occurred'));
+      toast({
+        title: "Error",
+        description: currentError instanceof Error ? currentError.message : "Failed to load cart data",
+        variant: "destructive",
+      });
+    }
+  }, [itemsError, sharedCartsError, pendingSharesError, toast]);
 
   const shareCartMutation = useMutation({
     mutationFn: async (username: string) => {
@@ -315,8 +372,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addToCart,
     shareCart,
     respondToShare,
-    isLoading,
+    isLoading: itemsLoading,
+    error,
   };
+
+  if (error) {
+    console.error('CartContext error:', error);
+  }
 
   return (
     <CartContext.Provider value={value}>

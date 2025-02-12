@@ -20,37 +20,190 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
-// Helper functions remain unchanged
+// Helper functions with proper error handling
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
-  if (lat && lng) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  try {
+    if (lat && lng) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    }
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
+  } catch (error) {
+    console.error('Error generating maps URL:', error);
+    return '#';
   }
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
 }
 
 function formatPhoneNumber(phone: string): string {
-  if (!phone) return '';
-  const cleaned = phone.replace(/[^\d+]/g, '');
-  return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+  try {
+    if (!phone) return '';
+    const cleaned = phone.replace(/[^\d+]/g, '');
+    return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
+  } catch (error) {
+    console.error('Error formatting phone number:', error);
+    return '';
+  }
 }
 
 function getWhatsAppLink(phone: string): string {
-  if (!phone) return '#';
-  const formattedPhone = formatPhoneNumber(phone);
-  const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
-  return `https://wa.me/${cleanedPhone}`;
+  try {
+    if (!phone) return '#';
+    const formattedPhone = formatPhoneNumber(phone);
+    const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
+    return `https://wa.me/${cleanedPhone}`;
+  } catch (error) {
+    console.error('Error generating WhatsApp link:', error);
+    return '#';
+  }
 }
 
 function getPhoneLink(phone: string): string {
-  if (!phone) return '#';
-  const formattedPhone = formatPhoneNumber(phone);
-  return `tel:${formattedPhone}`;
+  try {
+    if (!phone) return '#';
+    const formattedPhone = formatPhoneNumber(phone);
+    return `tel:${formattedPhone}`;
+  } catch (error) {
+    console.error('Error generating phone link:', error);
+    return '#';
+  }
 }
 
 function formatPrice(price: number | string): string {
-  const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-  return isNaN(numericPrice) ? '0.00' : numericPrice.toFixed(2);
+  try {
+    const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return isNaN(numericPrice) ? '0.00' : numericPrice.toFixed(2);
+  } catch (error) {
+    console.error('Error formatting price:', error);
+    return '0.00';
+  }
 }
+
+interface CartItemProps {
+  items: {
+    id: number;
+    name: string;
+    price: number | string;
+    quantity: number;
+    sellerId: number;
+    quality?: string;
+    category?: string;
+    city?: string;
+    state?: string;
+    latitude: number | null;
+    longitude: number | null;
+    image?: string;
+  }[];
+  isSharedCart?: boolean;
+  onUpdateQuantity?: (id: number, quantity: number) => void;
+  onRemoveItem?: (id: number) => void;
+  onContactSeller?: (id: number) => void;
+}
+
+const CartItems: React.FC<CartItemProps> = ({ 
+  items,
+  isSharedCart = false,
+  onUpdateQuantity,
+  onRemoveItem,
+  onContactSeller,
+}) => {
+  if (!items || items.length === 0) {
+    return (
+      <Card className="p-4">
+        <p className="text-center text-muted-foreground">No items in cart</p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {items.map((item) => (
+        <Card key={item.id} className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">
+              {getCategoryEmoji(item.category || '')} → {getProductEmoji(item.name, item.category || '')}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium">{item.name}</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2">
+                <p>Quality: {item.quality || 'N/A'}</p>
+                <p>Category: {item.category || 'N/A'}</p>
+                <p>Price per unit: ₹{formatPrice(item.price)}</p>
+                <p>Subtotal: ₹{formatPrice(Number(item.price) * item.quantity)}</p>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onContactSeller?.(item.id)}
+                  className="flex items-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  Contact Seller
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = getGoogleMapsDirectionsUrl(
+                      item.latitude,
+                      item.longitude,
+                      item.city || '',
+                      item.state || ''
+                    );
+                    if (url !== '#') {
+                      window.open(url, '_blank');
+                    }
+                  }}
+                  className="flex items-center gap-2"
+                  disabled={!item.city && !item.latitude}
+                >
+                  <MapPin className="w-4 h-4" />
+                  Get Directions
+                </Button>
+              </div>
+            </div>
+            {!isSharedCart && onUpdateQuantity && onRemoveItem && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 1)}
+                    className="w-16 text-center"
+                    min="1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="w-24 text-right">
+                  ₹{formatPrice(Number(item.price) * item.quantity)}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onRemoveItem(item.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+};
 
 export default function CartPage() {
   const { items, sharedCarts, pendingShares, removeItem, updateQuantity, clearCart, totalPrice, shareCart, respondToShare } = useCart();
@@ -63,7 +216,7 @@ export default function CartPage() {
   if (!user) {
     return (
       <div className="container mx-auto p-8">
-        <Card className="p-8 text-center">
+        <Card className="p-4 text-center">
           <h1 className="text-2xl font-bold mb-4">Please Log In</h1>
           <p className="text-muted-foreground mb-4">
             You need to be logged in to view your cart.
@@ -159,93 +312,7 @@ export default function CartPage() {
     }
   };
 
-  const CartItems = ({ items, isSharedCart = false }: { items: typeof items, isSharedCart?: boolean }) => (
-    <div className="grid gap-4">
-      {items.map((item) => (
-        <Card key={item.id} className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="text-4xl">
-              {getCategoryEmoji(item.category)} → {getProductEmoji(item.name, item.category)}
-            </div>
-            <div className="flex-1">
-              <h3 className="font-medium">{item.name}</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2">
-                <p>Quality: {item.quality}</p>
-                <p>Category: {item.category}</p>
-                <p>Price per unit: ₹{formatPrice(item.price)}</p>
-                <p>Subtotal: ₹{formatPrice(Number(item.price) * item.quantity)}</p>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleContactSeller(item.id)}
-                  className="flex items-center gap-2"
-                >
-                  <Phone className="w-4 h-4" />
-                  Contact Seller
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const url = getGoogleMapsDirectionsUrl(
-                      item.latitude,
-                      item.longitude,
-                      item.city,
-                      item.state
-                    );
-                    window.open(url, '_blank');
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <MapPin className="w-4 h-4" />
-                  Get Directions
-                </Button>
-              </div>
-            </div>
-            {!isSharedCart && (
-              <>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                    className="w-16 text-center"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="w-24 text-right">
-                  ₹{formatPrice(Number(item.price) * item.quantity)}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeItem(item.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-
+  // Show empty state if no items
   if (!items || (items.length === 0 && sharedCarts.length === 0)) {
     return (
       <div className="container mx-auto p-8">
@@ -325,6 +392,7 @@ export default function CartPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => respondToShare(share.id, 'accept')}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             >
                               <Check className="w-4 h-4" />
                             </Button>
@@ -332,6 +400,7 @@ export default function CartPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => respondToShare(share.id, 'reject')}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -353,7 +422,12 @@ export default function CartPage() {
               Clear Cart
             </Button>
           </div>
-          <CartItems items={items} />
+          <CartItems
+            items={items}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onContactSeller={handleContactSeller}
+          />
           <div className="flex justify-between items-center">
             <div>
               <p className="text-lg font-medium">Total: ₹{formatPrice(totalPrice)}</p>
@@ -370,7 +444,11 @@ export default function CartPage() {
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold">{cart.owner.username}'s Cart</h1>
             </div>
-            <CartItems items={cart.items} isSharedCart />
+            <CartItems
+              items={cart.items}
+              isSharedCart
+              onContactSeller={handleContactSeller}
+            />
           </TabsContent>
         ))}
       </Tabs>
