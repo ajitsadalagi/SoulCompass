@@ -487,7 +487,7 @@ export default function ProfilePage() {
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
+    const R = 6371; // Radius of the Earth in kilometers
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
     const a =
@@ -502,11 +502,6 @@ export default function ProfilePage() {
     return deg * (Math.PI / 180);
   };
 
-  if (!user) {
-    return null;
-  }
-
-  // Update the products query section
   const { data: userProducts, isLoading: isLoadingProducts } = useQuery<(Product & { admins: User[] })[]>({
     queryKey: ["/api/products/seller", user?.id],
     queryFn: async () => {
@@ -632,7 +627,6 @@ export default function ProfilePage() {
     });
   };
 
-  // Add product edit dialog component
   const renderEditDialog = () => {
     const editingProduct = userProducts?.find(p => p.id === editingProductId);
     if (!editingProduct) return null;
@@ -749,7 +743,6 @@ export default function ProfilePage() {
     deleteProductMutation.mutate(id);
   };
 
-  // Update the product card rendering to include edit functionality
   const renderProductCard = (product: Product & { admins: User[] }) => (
     <Card key={product.id} className="mb-4">
       <CardHeader>
@@ -883,6 +876,10 @@ export default function ProfilePage() {
     },
   });
 
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto p-8 space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -934,7 +931,7 @@ export default function ProfilePage() {
             {user.adminType === "super_admin" && user.adminStatus === "none" && (
               <div className="mt-4 p-4 border rounded-lg bg-muted">
                 <h3 className="text-sm font-medium mb-2">Super Administrator Status</h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb4">
                   Your account is registered as a Super Administrator. Please request approval from the Master Administrator to activate your privileges.
                 </p>
                 <Button
@@ -957,6 +954,7 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      {renderAdminSearchSection()}
       <AdminRequestForm />
       {(user.adminType === "none" || user.adminStatus === "pending") && (
         <Card>
