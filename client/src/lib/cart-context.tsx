@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Product } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CartItem {
   id: number;
@@ -31,9 +32,14 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const cartKey = user ? `cart_${user.id}` : null;
+
   const [items, setItems] = useState<CartItem[]>(() => {
+    if (!cartKey) return [];
+
     try {
-      const savedCart = localStorage.getItem('cart');
+      const savedCart = localStorage.getItem(cartKey);
       return savedCart ? JSON.parse(savedCart) : [];
     } catch (error) {
       console.error('Error loading cart from localStorage:', error);
@@ -42,14 +48,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    if (!cartKey) return;
+
     try {
-      localStorage.setItem('cart', JSON.stringify(items));
+      localStorage.setItem(cartKey, JSON.stringify(items));
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
-  }, [items]);
+  }, [items, cartKey]);
 
   const addItem = (newItem: CartItem) => {
+    if (!cartKey) {
+      toast({
+        title: "Error",
+        description: "Please log in to add items to cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setItems(currentItems => {
       const existingItem = currentItems.find(item => item.id === newItem.id);
 
@@ -71,6 +88,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: number) => {
+    if (!cartKey) return;
+
     setItems(currentItems => currentItems.filter(item => item.id !== id));
     toast({
       title: "Removed from cart",
@@ -79,7 +98,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
+    if (!cartKey || newQuantity < 1) return;
+
     setItems(currentItems =>
       currentItems.map(item =>
         item.id === id ? { ...item, quantity: newQuantity } : item
@@ -88,6 +108,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
+    if (!cartKey) return;
+
     setItems([]);
     toast({
       title: "Cart cleared",
@@ -96,6 +118,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product) => {
+    if (!cartKey) {
+      toast({
+        title: "Error",
+        description: "Please log in to add items to cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!product || typeof product !== 'object') {
       console.error('Invalid product data:', product);
       return;
