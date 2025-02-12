@@ -771,204 +771,202 @@ export default function ProfilePage() {
       </CardContent>
     </Card>
   );
-};
 
+  if (!user) {
+    return null;
+  }
 
-if (!user) {
-  return null;
-}
+  return (
+    <div className="container mx-auto p-8 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Profile Settings</h1>
+        <Button
+          variant="outline"
+          onClick={() => logoutMutation.mutate()}
+          className="gap-2 text-destructive hover:text-destructive"
+        >
+          <FiLogOut className="h-4 w-4" />
+          Logout
+        </Button>
+      </div>
 
-return (
-  <div className="container mx-auto p-8 space-y-8">
-    <div className="flex justify-between items-center mb-6">
-      <h1 className="text-3xl font-bold">Profile Settings</h1>
-      <Button
-        variant="outline"
-        onClick={() => logoutMutation.mutate()}
-        className="gap-2 text-destructive hover:text-destructive"
-      >
-        <FiLogOut className="h-4 w-4" />
-        Logout
-      </Button>
-    </div>
-
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <FiUsers className="h-5 w-5" />
-            Your Roles
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {roles.map((role) => (
-            <Button
-              key={role}
-              variant={user.roles.includes(role) ? "default" : "outline"}
-              onClick={() => {
-                const newRoles = user.roles.includes(role)
-                  ? user.roles.filter((r) => r !== role)
-                  : [...user.roles, role];
-
-                if (newRoles.length > 0) {
-                  updateRolesMutation.mutate(newRoles);
-                }
-              }}
-              disabled={updateRolesMutation.isPending}
-              className="capitalize"
-            >
-              {role}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-
-    <AdminSearchSection />
-    <AdminRequestForm />
-
-    {(user.adminType === "none" || user.adminStatus === "pending") && (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FiShield className="h-5 w-5" />
-            Admin Request
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <FiUsers className="h-5 w-5" />
+              Your Roles
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          {user.adminStatus === "pending" ? (
-            <div>
-              <p className="text-muted-foreground">
-                Your admin request is currently pending approval.
-                It was submitted on {format(new Date(user.adminRequestDate!), 'PPp')}.
-              </p>
-            </div>
-          ) : (
-            <div className="spacey-4">
-              <div className="text-muted-foreground">Request administrative privileges:</div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => requestAdminMutation.mutate({ adminType: "local_admin" })}
-                  disabled={requestAdminMutation.isPending}
-                >
-                  Request Local Admin
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => requestAdminMutation.mutate({ adminType: "super_admin" })}
-                  disabled={requestAdminMutation.isPending}
-                >
-                  Request Super Admin
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {roles.map((role) => (
+              <Button
+                key={role}
+                variant={user.roles.includes(role) ? "default" : "outline"}
+                onClick={() => {
+                  const newRoles = user.roles.includes(role)
+                    ? user.roles.filter((r) => r !== role)
+                    : [...user.roles, role];
+
+                  if (newRoles.length > 0) {
+                    updateRolesMutation.mutate(newRoles);
+                  }
+                }}
+                disabled={updateRolesMutation.isPending}
+                className="capitalize"
+              >
+                {role}
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
-    )}
 
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center gap-2">
-            <FiHome className="h-5 w-5" />
-            Profile Information
-          </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(!isEditing)}
-            className="gap-2"
-          >
-            {isEditing ? (
-              <>
-                <X className="h-4 w-4" />
-                Cancel
-              </>
+      <AdminSearchSection />
+      <AdminRequestForm />
+
+      {(user.adminType === "none" || user.adminStatus === "pending") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FiShield className="h-5 w-5" />
+              Admin Request
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {user.adminStatus === "pending" ? (
+              <div>
+                <p className="text-muted-foreground">
+                  Your admin request is currently pending approval.
+                  It was submitted on {format(new Date(user.adminRequestDate!), 'PPp')}.
+                </p>
+              </div>
             ) : (
-              <>
-                <PencilIcon className="h-4 w-4" />
-                Edit
-              </>
+              <div className="spacey-4">
+                <div className="text-muted-foreground">Request administrative privileges:</div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => requestAdminMutation.mutate({ adminType: "local_admin" })}
+                    disabled={requestAdminMutation.isPending}
+                  >
+                    Request Local Admin
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => requestAdminMutation.mutate({ adminType: "super_admin" })}
+                    disabled={requestAdminMutation.isPending}
+                  >
+                    Request Super Admin
+                  </Button>
+                </div>
+              </div>
             )}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form
-            id="profile-form"
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Your first name"
-                        {...field}
-                        disabled={!isEditing}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Your last name"
-                        {...field}
-                        disabled={!isEditing}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          </CardContent>
+        </Card>
+      )}
 
-            <FormField
-              control={form.control}
-              name="mobileNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mobile Number</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Your mobile number"
-                      {...field}
-                      type="tel"
-                      pattern="[0-9]*"
-                      disabled={!isEditing}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Enter your mobile number without spaces or special characters
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <FiHome className="h-5 w-5" />
+              Profile Information
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              className="gap-2"
+            >
+              {isEditing ? (
+                <>
+                  <X className="h-4 w-4" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <PencilIcon className="h-4 w-4" />
+                  Edit
+                </>
               )}
-            />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form
+              id="profile-form"
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Your first name"
+                          {...field}
+                          disabled={!isEditing}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Your last name"
+                          {...field}
+                          disabled={!isEditing}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormItem>
-              <FormLabel>Location</FormLabel>
-              <FormDescription>
-                Use the map to select your location or allow automatic location detection
-              </FormDescription>
+              <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Your mobile number"
+                        {...field}
+                        type="tel"
+                        pattern="[0-9]*"
+                        disabled={!isEditing}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter your mobile number without spaces or special characters
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormDescription>
+                  Use the map to select                  your location or allow automatic location detection
+                </FormDescription>
                 <LocationPicker
                   defaultLocation={
                     user.latitude && user.longitude

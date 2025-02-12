@@ -22,6 +22,7 @@ interface LocationPickerProps {
 }
 
 const libraries: Libraries = ["places"];
+const GOOGLE_MAPS_API_KEY = "AIzaSyBgP15bBcBJbl12Bl3vFsJoC-3y4rOB4Fc";
 
 export function LocationPicker({
   defaultLocation,
@@ -36,7 +37,7 @@ export function LocationPicker({
   const { toast } = useToast();
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     libraries,
   });
 
@@ -230,7 +231,7 @@ export function LocationPicker({
     return (
       <Card className="p-4">
         <div className="h-[300px] flex items-center justify-center text-center text-destructive">
-          Failed to load Google Maps. Please check your internet connection and try again.
+          Failed to load Google Maps. Please check if you have provided a valid API key.
         </div>
       </Card>
     );
