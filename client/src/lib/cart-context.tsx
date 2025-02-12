@@ -36,19 +36,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Load cart data when user logs in
+  // Load cart data when user logs in or changes
   useEffect(() => {
-    if (!user) {
-      setItems([]); // Clear cart when user logs out
+    if (!user?.id) {
+      setItems([]); // Clear cart when no user or user logs out
       return;
     }
 
+    // Load cart data for the specific user
     const cartKey = `cart_${user.id}`;
     try {
       const savedCart = localStorage.getItem(cartKey);
       if (savedCart) {
         const parsedCart = JSON.parse(savedCart);
         setItems(Array.isArray(parsedCart) ? parsedCart : []);
+      } else {
+        setItems([]); // Initialize empty cart for new users
       }
     } catch (error) {
       console.error('Error loading cart from localStorage:', error);
@@ -58,18 +61,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Save cart data whenever it changes
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      return; // Don't save cart data if no user is logged in
+    }
 
     const cartKey = `cart_${user.id}`;
     try {
-      localStorage.setItem(cartKey, JSON.stringify(items));
+      if (items.length === 0) {
+        localStorage.removeItem(cartKey); // Remove empty carts
+      } else {
+        localStorage.setItem(cartKey, JSON.stringify(items));
+      }
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
   }, [items, user?.id]);
 
   const addItem = (newItem: CartItem) => {
-    if (!user) {
+    if (!user?.id) {
       toast({
         title: "Error",
         description: "Please log in to add items to cart",
@@ -99,17 +108,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: number) => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    setItems(currentItems => currentItems.filter(item => item.id !== id));
+    setItems(currentItems => {
+      const newItems = currentItems.filter(item => item.id !== id);
+
+      // If cart becomes empty, remove it from localStorage
+      if (newItems.length === 0) {
+        localStorage.removeItem(`cart_${user.id}`);
+      }
+
+      return newItems;
+    });
+
     toast({
       title: "Removed from cart",
-      description: "Item has been removed from your cart.",
+      description: "Item has been removed from your cart",
     });
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    if (!user || newQuantity < 1) return;
+    if (!user?.id || newQuantity < 1) return;
 
     setItems(currentItems =>
       currentItems.map(item =>
@@ -119,20 +138,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
-    if (!user) return;
+    if (!user?.id) return;
 
     setItems([]);
-    if (user?.id) {
-      localStorage.removeItem(`cart_${user.id}`);
-    }
+    localStorage.removeItem(`cart_${user.id}`);
+
     toast({
       title: "Cart cleared",
-      description: "All items have been removed from your cart.",
+      description: "All items have been removed from your cart",
     });
   };
 
   const addToCart = (product: Product) => {
-    if (!user) {
+    if (!user?.id) {
       toast({
         title: "Error",
         description: "Please log in to add items to cart",
