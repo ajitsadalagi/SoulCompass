@@ -90,9 +90,66 @@ function getNetworkAddresses(): string[] {
   return addresses;
 }
 
-(async () => {
-  let activeServer = registerRoutes(app);
+let activeServer: ReturnType<typeof registerRoutes> | null = null;
 
+async function closeServer(): Promise<void> {
+  if (activeServer && activeServer.listening) {
+    return new Promise((resolve) => {
+      activeServer!.close(() => {
+        activeServer = null;
+        resolve();
+      });
+    });
+  }
+  return Promise.resolve();
+}
+
+// Try to start the server with graceful error handling
+async function startServer(port: number, maxRetries: number = 10): Promise<void> {
+  try {
+    // Close any existing server first
+    await closeServer();
+
+    // Create new server instance
+    const server = registerRoutes(app);
+
+    await new Promise<void>((resolve, reject) => {
+      server.listen(port, "0.0.0.0", () => {
+        activeServer = server;
+        const addresses = getNetworkAddresses();
+
+        log(`Server started successfully on port ${port}`);
+        log(`Server is accessible at: http://localhost:${port}`);
+        log('Available network addresses for Expo Go:');
+        addresses.forEach(addr => {
+          log(`  http://${addr}:${port}`);
+        });
+        resolve();
+      }).on('error', async (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+          if (maxRetries > 0) {
+            log(`Port ${port} is in use, trying port ${port + 1}`);
+            try {
+              await startServer(port + 1, maxRetries - 1);
+              resolve();
+            } catch (retryError) {
+              reject(retryError);
+            }
+          } else {
+            reject(new Error('No available ports found after maximum retries'));
+          }
+        } else {
+          reject(err);
+        }
+      });
+    });
+  } catch (error) {
+    log(`Failed to start server: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
+
+(async () => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -101,65 +158,27 @@ function getNetworkAddresses(): string[] {
   });
 
   if (app.get("env") === "development") {
-    await setupVite(app, activeServer);
+    await setupVite(app, activeServer!);
   } else {
     serveStatic(app);
   }
 
-  // Try to start the server with graceful error handling
-  const startServer = async (port: number): Promise<void> => {
+  // Graceful shutdown handler
+  async function gracefulShutdown(signal: string) {
+    log(`Received ${signal} signal`);
     try {
-      // Close any existing server
-      if (activeServer.listening) {
-        await new Promise((resolve) => activeServer.close(resolve));
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        activeServer = registerRoutes(app);
-        activeServer.listen(port, "0.0.0.0", () => {
-          const addresses = getNetworkAddresses();
-
-          log(`Server started successfully on port ${port}`);
-          log(`Server is accessible at: http://localhost:${port}`);
-          log('Available network addresses for Expo Go:');
-          addresses.forEach(addr => {
-            log(`  http://${addr}:${port}`);
-          });
-          resolve();
-        }).on('error', (err: NodeJS.ErrnoException) => {
-          if (err.code === 'EADDRINUSE') {
-            log(`Port ${port} is in use`);
-            reject(new Error(`Port ${port} is in use`));
-          } else {
-            reject(err);
-          }
-        });
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Port')) {
-        if (port < 5010) {
-          log(`Attempting to start on port ${port + 1}`);
-          await startServer(port + 1);
-        } else {
-          throw new Error('No available ports found between 5000 and 5010');
-        }
-      } else {
-        throw error;
-      }
-    }
-  };
-
-  const gracefulShutdown = async () => {
-    log('Received shutdown signal');
-    if (activeServer.listening) {
-      await new Promise((resolve) => activeServer.close(resolve));
+      await closeServer();
       log('Server closed gracefully');
+      process.exit(0);
+    } catch (error) {
+      log(`Error during shutdown: ${error}`);
+      process.exit(1);
     }
-    process.exit(0);
-  };
+  }
 
-  process.on('SIGTERM', gracefulShutdown);
-  process.on('SIGINT', gracefulShutdown);
+  // Register shutdown handlers
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   try {
     await startServer(5000);

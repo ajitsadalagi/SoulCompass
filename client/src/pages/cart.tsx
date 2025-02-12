@@ -21,12 +21,13 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
 // Helper functions with proper error handling
-function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
+function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null) {
   try {
+    // Only use lat/lng for directions, ignore city/state
     if (lat && lng) {
       return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     }
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${city}, ${state}`)}`;
+    return '#';
   } catch (error) {
     console.error('Error generating maps URL:', error);
     return '#';
@@ -98,7 +99,7 @@ interface CartItemProps {
   onContactSeller?: (id: number) => void;
 }
 
-const CartItems: React.FC<CartItemProps> = ({ 
+const CartItems: React.FC<CartItemProps> = ({
   items,
   isSharedCart = false,
   onUpdateQuantity,
@@ -139,26 +140,22 @@ const CartItems: React.FC<CartItemProps> = ({
                   <Phone className="w-4 h-4" />
                   Contact Seller
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const url = getGoogleMapsDirectionsUrl(
-                      item.latitude,
-                      item.longitude,
-                      item.city || '',
-                      item.state || ''
-                    );
-                    if (url !== '#') {
-                      window.open(url, '_blank');
-                    }
-                  }}
-                  className="flex items-center gap-2"
-                  disabled={!item.city && !item.latitude}
-                >
-                  <MapPin className="w-4 h-4" />
-                  Get Directions
-                </Button>
+                {(item.latitude || item.longitude) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = getGoogleMapsDirectionsUrl(item.latitude, item.longitude);
+                      if (url !== '#') {
+                        window.open(url, '_blank');
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Get Directions
+                  </Button>
+                )}
               </div>
             </div>
             {!isSharedCart && onUpdateQuantity && onRemoveItem && (
