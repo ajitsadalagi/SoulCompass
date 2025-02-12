@@ -31,7 +31,6 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// Helper function to validate cart item structure
 const isValidCartItem = (item: any): item is CartItem => {
   return (
     typeof item === 'object' &&
@@ -50,12 +49,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Function to get cart key for current user
   const getCartKey = (userId: number) => `cart_${userId}`;
 
-  // Reset and load cart when user changes
+  // Load cart data when user changes
   useEffect(() => {
-    // Always clear the cart state when user changes
+    // Clear cart when user changes or logs out
     setItems([]);
 
-    // Only attempt to load cart data if we have a logged-in user
+    // Only load cart data for authenticated users
     if (user?.id) {
       const cartKey = getCartKey(user.id);
       try {
@@ -65,7 +64,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(parsedCart) && parsedCart.every(isValidCartItem)) {
             setItems(parsedCart);
           } else {
-            console.error('Invalid cart data structure, resetting cart');
+            // Invalid cart data, remove it
             localStorage.removeItem(cartKey);
           }
         }
@@ -112,6 +111,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     setItems(currentItems => {
+      // Only modify cart if user is authenticated
+      if (!user?.id) return currentItems;
+
       const existingItem = currentItems.find(item => item.id === newItem.id);
       if (existingItem) {
         toast({
@@ -141,6 +143,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     setItems(currentItems => {
+      // Only modify cart if user is authenticated
+      if (!user?.id) return currentItems;
+
       const newItems = currentItems.filter(item => item.id !== id);
       toast({
         title: "Removed from Cart",
@@ -169,11 +174,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setItems(currentItems =>
-      currentItems.map(item =>
+    setItems(currentItems => {
+      // Only modify cart if user is authenticated
+      if (!user?.id) return currentItems;
+
+      return currentItems.map(item =>
         item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+      );
+    });
   };
 
   const clearCart = () => {
@@ -223,11 +231,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addItem(cartItem);
   };
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Calculate totals only for authenticated users
+  const totalItems = user?.id ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+  const totalPrice = user?.id ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
 
   const value = {
-    items,
+    items: user?.id ? items : [], // Only return items if user is authenticated
     addItem,
     removeItem,
     updateQuantity,
