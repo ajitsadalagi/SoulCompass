@@ -897,15 +897,6 @@ export function registerRoutes(app: Express): Server {
     try {
       const validatedData = insertCartShareSchema.parse(req.body);
 
-      // Check if target user exists
-      const targetUser = await storage.getUser(validatedData.sharedWithUserId);
-      if (!targetUser) {
-        return res.status(404).json({
-          message: "User not found",
-          error: "TARGET_USER_NOT_FOUND"
-        });
-      }
-
       // Create share
       const share = await storage.shareCart(req.user!.id, validatedData);
       res.status(201).json(share);

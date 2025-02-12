@@ -229,7 +229,7 @@ export const cartShares = pgTable(TABLE_NAMES.CART_SHARES, {
 
 // Create insert schema for cart shares
 export const insertCartShareSchema = z.object({
-  sharedWithUserId: z.number().int().positive("User ID must be positive"),
+  username: z.string().min(1, "Username is required"),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
