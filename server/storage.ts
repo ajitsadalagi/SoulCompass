@@ -195,11 +195,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: number, data: Partial<Product>): Promise<Product | undefined> {
-    const [product] = await db.update(products)
-      .set(data)
-      .where(eq(products.id, id))
-      .returning();
-    return product;
+    console.log("Updating product:", { id, data });
+
+    try {
+      const [product] = await db.update(products)
+        .set({
+          ...data,
+          // Ensure numeric fields are properly typed
+          quantity: data.quantity ? Number(data.quantity) : undefined,
+          targetPrice: data.targetPrice ? Number(data.targetPrice) : undefined,
+        })
+        .where(eq(products.id, id))
+        .returning();
+
+      console.log("Product update result:", product);
+      return product;
+    } catch (error) {
+      console.error("Error in updateProduct:", error);
+      throw error;
+    }
   }
 
   async deleteProduct(id: number): Promise<void> {

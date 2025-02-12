@@ -437,7 +437,7 @@ export function registerRoutes(app: Express): Server {
       const product = await storage.createProduct({
         ...validatedData,
         sellerId: req.user.id,  // Ensure sellerId is set again
-        localAdminIds: req.body.localAdminIds || [], 
+        localAdminIds: req.body.localAdminIds || [],
       });
 
       console.log("Created product:", product);
@@ -460,9 +460,17 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const product = await storage.getProductById(Number(req.params.id));
+      console.log("Product update request:", {
+        productId: req.params.id,
+        userId: req.user?.id,
+        data: req.body
+      });
+
+      const productId = Number(req.params.id);
+      const product = await storage.getProductById(productId);
 
       if (!product) {
+        console.log("Product not found:", productId);
         return res.status(404).json({
           message: "Product not found",
           error: "Invalid product ID"
@@ -470,22 +478,37 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (product.sellerId !== req.user?.id) {
+        console.log("Unauthorized update attempt:", {
+          productSeller: product.sellerId,
+          requestingUser: req.user.id
+        });
         return res.status(403).json({
           message: "You can only update your own products",
           error: "Permission denied"
         });
       }
 
+      // Validate update data
+      const validatedData = insertProductSchema.partial().parse({
+        ...req.body,
+        quantity: Number(req.body.quantity),
+        targetPrice: Number(req.body.targetPrice),
+      });
+
+      console.log("Validated update data:", validatedData);
+
       // Update the product
-      const updatedProduct = await storage.updateProduct(product.id, req.body);
+      const updatedProduct = await storage.updateProduct(productId, validatedData);
 
       if (!updatedProduct) {
-        return res.status(404).json({
+        console.log("Failed to update product:", productId);
+        return res.status(500).json({
           message: "Failed to update product",
-          error: "Product not found"
+          error: "Database update failed"
         });
       }
 
+      console.log("Product updated successfully:", updatedProduct);
       res.json(updatedProduct);
     } catch (error) {
       console.error("Error updating product:", error);
