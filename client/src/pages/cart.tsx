@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
+import { useAuth } from "@/hooks/use-auth";
 
 // Add helper functions for contacts and maps
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -48,59 +49,22 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
-  const handleCheckout = () => {
-    toast({
-      title: "Checkout",
-      description: "This is a demo. In a real app, this would redirect to payment.",
-    });
-  };
-
-  const handleContactSeller = async (productId: number) => {
-    try {
-      const response = await apiRequest("POST", `/api/products/${productId}/contact`);
-      const data = await response.json();
-      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
-
-      toast({
-        title: "Seller Contact Information",
-        description: (
-          <div className="mt-2 space-y-2">
-            <p><strong>Name:</strong> {data.seller.name}</p>
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold">Contact Options:</p>
-              <div className="flex gap-2">
-                <a
-                  href={getPhoneLink(formattedPhone)}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                >
-                  <Phone className="w-4 h-4" />
-                  Call
-                </a>
-                <a
-                  href={getWhatsAppLink(formattedPhone)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp
-                </a>
-              </div>
-            </div>
-          </div>
-        ),
-        duration: 10000,
-      });
-    } catch (error) {
-      console.error('Error fetching seller details:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch seller details",
-        variant: "destructive",
-      });
-    }
-  };
+  // Redirect to auth page if not logged in
+  if (!user) {
+    return (
+      <div className="container mx-auto p-8">
+        <Card className="p-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Please Log In</h1>
+          <p className="text-muted-foreground mb-4">
+            You need to be logged in to view your cart.
+          </p>
+          <Button onClick={() => setLocation("/auth")}>Log In</Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (!items || items.length === 0) {
     return (
@@ -220,3 +184,56 @@ export default function CartPage() {
     </div>
   );
 }
+
+const handleCheckout = () => {
+  toast({
+    title: "Checkout",
+    description: "This is a demo. In a real app, this would redirect to payment.",
+  });
+};
+
+const handleContactSeller = async (productId: number) => {
+  try {
+    const response = await apiRequest("POST", `/api/products/${productId}/contact`);
+    const data = await response.json();
+    const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
+
+    toast({
+      title: "Seller Contact Information",
+      description: (
+        <div className="mt-2 space-y-2">
+          <p><strong>Name:</strong> {data.seller.name}</p>
+          <div className="flex flex-col gap-2">
+            <p className="font-semibold">Contact Options:</p>
+            <div className="flex gap-2">
+              <a
+                href={getPhoneLink(formattedPhone)}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                <Phone className="w-4 h-4" />
+                Call
+              </a>
+              <a
+                href={getWhatsAppLink(formattedPhone)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      ),
+      duration: 10000,
+    });
+  } catch (error) {
+    console.error('Error fetching seller details:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : "Failed to fetch seller details",
+      variant: "destructive",
+    });
+  }
+};

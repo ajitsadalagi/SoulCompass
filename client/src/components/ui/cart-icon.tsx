@@ -7,9 +7,22 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { useAuth } from "@/hooks/use-auth";
 
 export function CartIcon() {
   const { items, totalItems, totalPrice } = useCart();
+  const { user } = useAuth();
+
+  // If user is not logged in, show a simple cart icon that links to auth page
+  if (!user) {
+    return (
+      <Link href="/auth">
+        <Button variant="ghost" className="relative">
+          <ShoppingCart className="h-5 w-5" />
+        </Button>
+      </Link>
+    );
+  }
 
   return (
     <HoverCard>

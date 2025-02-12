@@ -108,27 +108,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: number) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "Please log in to manage your cart",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setItems(currentItems => {
       const newItems = currentItems.filter(item => item.id !== id);
-
-      // If cart becomes empty, remove it from localStorage
-      if (newItems.length === 0) {
-        localStorage.removeItem(`cart_${user.id}`);
-      }
-
+      toast({
+        title: "Removed from cart",
+        description: "Item has been removed from your cart",
+      });
       return newItems;
-    });
-
-    toast({
-      title: "Removed from cart",
-      description: "Item has been removed from your cart",
     });
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    if (!user?.id || newQuantity < 1) return;
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "Please log in to update your cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newQuantity < 1) {
+      toast({
+        title: "Invalid quantity",
+        description: "Quantity must be at least 1",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setItems(currentItems =>
       currentItems.map(item =>
@@ -138,11 +154,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "Please log in to manage your cart",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setItems([]);
     localStorage.removeItem(`cart_${user.id}`);
-
     toast({
       title: "Cart cleared",
       description: "All items have been removed from your cart",
