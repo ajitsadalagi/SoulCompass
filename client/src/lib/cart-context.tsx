@@ -15,6 +15,7 @@ interface CartItem {
   state: string;
   latitude: number | null;
   longitude: number | null;
+  image?: string;
 }
 
 interface CartContextType {
@@ -28,37 +29,47 @@ interface CartContextType {
   addToCart: (product: Product) => void;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const cartKey = user ? `cart_${user.id}` : null;
+  const [items, setItems] = useState<CartItem[]>([]);
 
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (!cartKey) return [];
+  // Load cart data when user logs in
+  useEffect(() => {
+    if (!user) {
+      setItems([]); // Clear cart when user logs out
+      return;
+    }
 
+    const cartKey = `cart_${user.id}`;
     try {
       const savedCart = localStorage.getItem(cartKey);
-      return savedCart ? JSON.parse(savedCart) : [];
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        setItems(Array.isArray(parsedCart) ? parsedCart : []);
+      }
     } catch (error) {
       console.error('Error loading cart from localStorage:', error);
-      return [];
+      setItems([]);
     }
-  });
+  }, [user?.id]); // Only re-run if user ID changes
 
+  // Save cart data whenever it changes
   useEffect(() => {
-    if (!cartKey) return;
+    if (!user?.id) return;
 
+    const cartKey = `cart_${user.id}`;
     try {
       localStorage.setItem(cartKey, JSON.stringify(items));
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
-  }, [items, cartKey]);
+  }, [items, user?.id]);
 
   const addItem = (newItem: CartItem) => {
-    if (!cartKey) {
+    if (!user) {
       toast({
         title: "Error",
         description: "Please log in to add items to cart",
@@ -88,7 +99,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: number) => {
-    if (!cartKey) return;
+    if (!user) return;
 
     setItems(currentItems => currentItems.filter(item => item.id !== id));
     toast({
@@ -98,7 +109,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    if (!cartKey || newQuantity < 1) return;
+    if (!user || newQuantity < 1) return;
 
     setItems(currentItems =>
       currentItems.map(item =>
@@ -108,9 +119,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
-    if (!cartKey) return;
+    if (!user) return;
 
     setItems([]);
+    if (user?.id) {
+      localStorage.removeItem(`cart_${user.id}`);
+    }
     toast({
       title: "Cart cleared",
       description: "All items have been removed from your cart.",
@@ -118,7 +132,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product) => {
-    if (!cartKey) {
+    if (!user) {
       toast({
         title: "Error",
         description: "Please log in to add items to cart",
@@ -164,17 +178,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return sum + (itemPrice * item.quantity);
   }, 0);
 
+  const value = {
+    items,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    totalItems,
+    totalPrice,
+    addToCart,
+  };
+
   return (
-    <CartContext.Provider value={{
-      items,
-      addItem,
-      removeItem,
-      updateQuantity,
-      clearCart,
-      totalItems,
-      totalPrice,
-      addToCart,
-    }}>
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );
@@ -182,7 +198,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useCart must be used within a CartProvider');
   }
   return context;
