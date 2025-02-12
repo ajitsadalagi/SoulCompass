@@ -31,57 +31,81 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
+// Helper function to validate cart item structure
+const isValidCartItem = (item: any): item is CartItem => {
+  return (
+    typeof item === 'object' &&
+    typeof item.id === 'number' &&
+    typeof item.name === 'string' &&
+    typeof item.quantity === 'number' &&
+    typeof item.sellerId === 'number'
+  );
+};
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Load cart data when user logs in or changes
+  // Function to get cart key for current user
+  const getCartKey = (userId: number) => `cart_${userId}`;
+
+  // Reset and load cart when user changes
   useEffect(() => {
-    if (!user?.id) {
-      setItems([]); // Clear cart when no user or user logs out
-      return;
-    }
+    // Always clear the cart state when user changes
+    setItems([]);
 
-    // Load cart data for the specific user
-    const cartKey = `cart_${user.id}`;
-    try {
-      const savedCart = localStorage.getItem(cartKey);
-      if (savedCart) {
-        const parsedCart = JSON.parse(savedCart);
-        setItems(Array.isArray(parsedCart) ? parsedCart : []);
-      } else {
-        setItems([]); // Initialize empty cart for new users
+    // Only attempt to load cart data if we have a logged-in user
+    if (user?.id) {
+      const cartKey = getCartKey(user.id);
+      try {
+        const savedCart = localStorage.getItem(cartKey);
+        if (savedCart) {
+          const parsedCart = JSON.parse(savedCart);
+          if (Array.isArray(parsedCart) && parsedCart.every(isValidCartItem)) {
+            setItems(parsedCart);
+          } else {
+            console.error('Invalid cart data structure, resetting cart');
+            localStorage.removeItem(cartKey);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading cart:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load your cart data",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
-      setItems([]);
     }
-  }, [user?.id]); // Only re-run if user ID changes
+  }, [user?.id, toast]);
 
-  // Save cart data whenever it changes
+  // Save cart whenever items change
   useEffect(() => {
-    if (!user?.id) {
-      return; // Don't save cart data if no user is logged in
-    }
-
-    const cartKey = `cart_${user.id}`;
-    try {
-      if (items.length === 0) {
-        localStorage.removeItem(cartKey); // Remove empty carts
-      } else {
-        localStorage.setItem(cartKey, JSON.stringify(items));
+    if (user?.id) {
+      const cartKey = getCartKey(user.id);
+      try {
+        if (items.length === 0) {
+          localStorage.removeItem(cartKey);
+        } else {
+          localStorage.setItem(cartKey, JSON.stringify(items));
+        }
+      } catch (error) {
+        console.error('Error saving cart:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save cart data",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error('Error saving cart to localStorage:', error);
     }
-  }, [items, user?.id]);
+  }, [items, user?.id, toast]);
 
   const addItem = (newItem: CartItem) => {
     if (!user?.id) {
       toast({
-        title: "Error",
-        description: "Please log in to add items to cart",
+        title: "Authentication Required",
+        description: "Please log in to add items to your cart",
         variant: "destructive",
       });
       return;
@@ -89,28 +113,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setItems(currentItems => {
       const existingItem = currentItems.find(item => item.id === newItem.id);
-
       if (existingItem) {
         toast({
-          title: "Already in cart",
-          description: "This item is already in your cart. You can adjust the quantity in the cart.",
+          title: "Already in Cart",
+          description: "This item is already in your cart",
         });
         return currentItems;
       }
 
       toast({
-        title: "Added to cart",
+        title: "Added to Cart",
         description: `${newItem.name} has been added to your cart`,
       });
 
-      return [...currentItems, newItem];
+      return [...currentItems, { ...newItem, quantity: 1 }];
     });
   };
 
   const removeItem = (id: number) => {
     if (!user?.id) {
       toast({
-        title: "Error",
+        title: "Authentication Required",
         description: "Please log in to manage your cart",
         variant: "destructive",
       });
@@ -120,7 +143,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems(currentItems => {
       const newItems = currentItems.filter(item => item.id !== id);
       toast({
-        title: "Removed from cart",
+        title: "Removed from Cart",
         description: "Item has been removed from your cart",
       });
       return newItems;
@@ -130,7 +153,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const updateQuantity = (id: number, newQuantity: number) => {
     if (!user?.id) {
       toast({
-        title: "Error",
+        title: "Authentication Required",
         description: "Please log in to update your cart",
         variant: "destructive",
       });
@@ -139,7 +162,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     if (newQuantity < 1) {
       toast({
-        title: "Invalid quantity",
+        title: "Invalid Quantity",
         description: "Quantity must be at least 1",
         variant: "destructive",
       });
@@ -156,7 +179,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = () => {
     if (!user?.id) {
       toast({
-        title: "Error",
+        title: "Authentication Required",
         description: "Please log in to manage your cart",
         variant: "destructive",
       });
@@ -164,9 +187,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     setItems([]);
-    localStorage.removeItem(`cart_${user.id}`);
+    const cartKey = getCartKey(user.id);
+    localStorage.removeItem(cartKey);
     toast({
-      title: "Cart cleared",
+      title: "Cart Cleared",
       description: "All items have been removed from your cart",
     });
   };
@@ -174,31 +198,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addToCart = (product: Product) => {
     if (!user?.id) {
       toast({
-        title: "Error",
-        description: "Please log in to add items to cart",
+        title: "Authentication Required",
+        description: "Please log in to add items to your cart",
         variant: "destructive",
       });
-      return;
-    }
-
-    if (!product || typeof product !== 'object') {
-      console.error('Invalid product data:', product);
-      return;
-    }
-
-    const price = typeof product.targetPrice === 'string' 
-      ? parseFloat(product.targetPrice) 
-      : (product.targetPrice || 0);
-
-    if (isNaN(price)) {
-      console.error('Invalid price:', product.targetPrice);
       return;
     }
 
     const cartItem: CartItem = {
       id: product.id,
       name: product.name || '',
-      price: price,
+      price: typeof product.targetPrice === 'string' ? parseFloat(product.targetPrice) : (product.targetPrice || 0),
       quantity: 1,
       sellerId: product.sellerId,
       quality: product.quality || '',
@@ -207,16 +217,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       state: product.state || '',
       latitude: product.latitude,
       longitude: product.longitude,
+      image: product.image,
     };
 
     addItem(cartItem);
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => {
-    const itemPrice = typeof item.price === 'number' ? item.price : 0;
-    return sum + (itemPrice * item.quantity);
-  }, 0);
+  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const value = {
     items,

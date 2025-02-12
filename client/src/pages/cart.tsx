@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
 import { useAuth } from "@/hooks/use-auth";
 
-// Add helper functions for contacts and maps
+// Helper functions remain unchanged
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
   if (lat && lng) {
     return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -19,16 +19,13 @@ function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city
 
 function formatPhoneNumber(phone: string): string {
   if (!phone) return '';
-  // Remove any non-digit characters except +
   const cleaned = phone.replace(/[^\d+]/g, '');
-  // Only add country code if not already present
   return cleaned.startsWith('+') ? cleaned : `+91${cleaned}`;
 }
 
 function getWhatsAppLink(phone: string): string {
   if (!phone) return '#';
   const formattedPhone = formatPhoneNumber(phone);
-  // Remove any remaining non-digit characters for WhatsApp
   const cleanedPhone = formattedPhone.replace(/[^\d]/g, '');
   return `https://wa.me/${cleanedPhone}`;
 }
@@ -39,7 +36,6 @@ function getPhoneLink(phone: string): string {
   return `tel:${formattedPhone}`;
 }
 
-// Add helper function to safely format price
 function formatPrice(price: number | string): string {
   const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
   return isNaN(numericPrice) ? '0.00' : numericPrice.toFixed(2);
@@ -79,6 +75,78 @@ export default function CartPage() {
       </div>
     );
   }
+
+  const handleCheckout = () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to proceed with checkout.",
+        variant: "destructive",
+      });
+      setLocation("/auth");
+      return;
+    }
+    toast({
+      title: "Checkout",
+      description: "This is a demo. In a real app, this would redirect to payment.",
+    });
+  };
+
+  const handleContactSeller = async (productId: number) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to contact sellers.",
+        variant: "destructive",
+      });
+      setLocation("/auth");
+      return;
+    }
+
+    try {
+      const response = await apiRequest("POST", `/api/products/${productId}/contact`);
+      const data = await response.json();
+      const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
+
+      toast({
+        title: "Seller Contact Information",
+        description: (
+          <div className="mt-2 space-y-2">
+            <p><strong>Name:</strong> {data.seller.name}</p>
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold">Contact Options:</p>
+              <div className="flex gap-2">
+                <a
+                  href={getPhoneLink(formattedPhone)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  <Phone className="w-4 h-4" />
+                  Call
+                </a>
+                <a
+                  href={getWhatsAppLink(formattedPhone)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        ),
+        duration: 10000,
+      });
+    } catch (error) {
+      console.error('Error fetching seller details:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch seller details",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-8">
@@ -184,56 +252,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-const handleCheckout = () => {
-  toast({
-    title: "Checkout",
-    description: "This is a demo. In a real app, this would redirect to payment.",
-  });
-};
-
-const handleContactSeller = async (productId: number) => {
-  try {
-    const response = await apiRequest("POST", `/api/products/${productId}/contact`);
-    const data = await response.json();
-    const formattedPhone = formatPhoneNumber(data.seller.mobileNumber);
-
-    toast({
-      title: "Seller Contact Information",
-      description: (
-        <div className="mt-2 space-y-2">
-          <p><strong>Name:</strong> {data.seller.name}</p>
-          <div className="flex flex-col gap-2">
-            <p className="font-semibold">Contact Options:</p>
-            <div className="flex gap-2">
-              <a
-                href={getPhoneLink(formattedPhone)}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                <Phone className="w-4 h-4" />
-                Call
-              </a>
-              <a
-                href={getWhatsAppLink(formattedPhone)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-              >
-                <MessageCircle className="w-4 h-4" />
-                WhatsApp
-              </a>
-            </div>
-          </div>
-        </div>
-      ),
-      duration: 10000,
-    });
-  } catch (error) {
-    console.error('Error fetching seller details:', error);
-    toast({
-      title: "Error",
-      description: error instanceof Error ? error.message : "Failed to fetch seller details",
-      variant: "destructive",
-    });
-  }
-};
