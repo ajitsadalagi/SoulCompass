@@ -56,18 +56,29 @@ function getTextColorClass(listingType: 'buyer' | 'seller'): string {
 
 // Update the card style function
 function getCardStyle(product: Product): string {
-  const admins = product.admins || [];
-  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
-  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
+  // Check if the product's seller is an admin (any type)
+  const isAdminListing = product.admins?.some(admin => 
+    admin.adminStatus === 'approved' && admin.id === product.sellerId
+  );
 
-  if (superAdmin && product.sellerId === superAdmin.id) {
-    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
-  }
-  if (localAdmin && product.sellerId === localAdmin.id) {
+  if (isAdminListing) {
+    // Check for specific admin type to determine glow color
+    const isSuperAdmin = product.admins?.some(admin => 
+      admin.adminType === 'super_admin' && 
+      admin.adminStatus === 'approved' && 
+      admin.id === product.sellerId
+    );
+
+    // Apply violet glow for super admin listings
+    if (isSuperAdmin) {
+      return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
+    }
+
+    // Apply purple glow for local admin listings
     return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
   }
 
-  // Regular user listing
+  // Regular user listing (non-admin)
   return product.listingType === 'buyer'
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
