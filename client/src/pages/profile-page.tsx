@@ -907,26 +907,53 @@ export default function ProfilePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {roles.map((role) => (
-              <Button
-                key={role}
-                variant={user.roles.includes(role) ? "default" : "outline"}
-                onClick={() => {
-                  const newRoles = user.roles.includes(role)
-                    ? user.roles.filter((r) => r !== role)
-                    : [...user.roles, role];
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {roles.map((role) => (
+                <Button
+                  key={role}
+                  variant={user.roles.includes(role) ? "default" : "outline"}
+                  onClick={() => {
+                    const newRoles = user.roles.includes(role)
+                      ? user.roles.filter((r) => r !== role)
+                      : [...user.roles, role];
 
-                  if (newRoles.length > 0) {
-                    updateRolesMutation.mutate(newRoles as InsertUser["roles"]);
-                  }
-                }}
-                disabled={updateRolesMutation.isPending}
-                className="capitalize"
-              >
-                {role}
-              </Button>
-            ))}
+                    if (newRoles.length > 0) {
+                      updateRolesMutation.mutate(newRoles as InsertUser["roles"]);
+                    }
+                  }}
+                  disabled={updateRolesMutation.isPending}
+                  className="capitalize"
+                >
+                  {role}
+                </Button>
+              ))}
+            </div>
+
+            {/* Add Super Admin Request Button */}
+            {user.adminType === "super_admin" && user.adminStatus === "none" && (
+              <div className="mt-4 p-4 border rounded-lg bg-muted">
+                <h3 className="text-sm font-medium mb-2">Super Administrator Status</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your account is registered as a Super Administrator. Please request approval from the Master Administrator to activate your privileges.
+                </p>
+                <Button
+                  onClick={() => requestAdminMutation.mutate({
+                    adminType: "super_admin",
+                    requestedAdminId: 15 // masteradmin123's ID
+                  })}
+                  disabled={requestAdminMutation.isPending}
+                  className="w-full"
+                >
+                  {requestAdminMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <FiShield className="h-4 w-4 mr-2" />
+                  )}
+                  Request Super Admin Approval
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
