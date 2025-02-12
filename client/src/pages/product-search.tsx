@@ -1,4 +1,4 @@
-import { Apple, Carrot, Milk, Package, Phone, Clock, Search as SearchIcon, X, User, MapPin } from "lucide-react";
+import { Apple, Carrot, Milk, Package, Phone, Clock, Search as SearchIcon, X, User, MapPin, ShoppingCart, Eye, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,8 @@ import { format } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Phone as PhoneIcon, MessageCircle } from "lucide-react";
-
+import { Phone as PhoneIcon } from "lucide-react";
+import { useCart } from "@/lib/cart-context";
 
 // Add the helper function for Google Maps directions URL
 function getGoogleMapsDirectionsUrl(lat: number | null, lng: number | null, city: string, state: string) {
@@ -365,22 +365,38 @@ const filterSchema = z.object({
 
 type FilterValues = z.infer<typeof filterSchema>;
 
-// Add the card style function to match home page
+// Update the card style function to properly handle admin listings
 function getCardStyle(product: Product): string {
-  // Check for admin with most privilege first
-  const admins = product.admins || [];
-  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
-  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
+  const isBuyerListing = product.listingType === 'buyer';
+  // Find approved admins
+  const approvedSuperAdmin = product.admins?.find(
+    admin => admin.adminType === 'super_admin' && 
+    admin.adminStatus === 'approved' &&
+    admin.id === product.sellerId
+  );
 
-  if (superAdmin && product.sellerId === superAdmin.id) {
-    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
-  }
-  if (localAdmin && product.sellerId === localAdmin.id) {
-    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
+  const approvedLocalAdmin = product.admins?.find(
+    admin => admin.adminType === 'local_admin' && 
+    admin.adminStatus === 'approved' &&
+    admin.id === product.sellerId
+  );
+
+  // Super admin gets the strongest glow
+  if (approvedSuperAdmin) {
+    return `border-2 ${
+      isBuyerListing ? 'border-red-500 animate-border-glow-red' : 'border-green-500 animate-border-glow-green'
+    } shadow-lg transform scale-102 transition-all duration-500`;
   }
 
-  // Regular user listing
-  return product.listingType === 'buyer'
+  // Local admin gets a moderate glow
+  if (approvedLocalAdmin) {
+    return `border-2 ${
+      isBuyerListing ? 'border-red-400 animate-border-glow-red-light' : 'border-green-400 animate-border-glow-green-light'
+    } shadow-md transform scale-101 transition-all duration-500`;
+  }
+
+  // Regular listing
+  return isBuyerListing
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
@@ -389,6 +405,7 @@ const ProductSearch = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { addToCart } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
   const [selectedItem, setSelectedItem] = useState<ProductItem | null>(null);
   const [searchCircle, setSearchCircle] = useState<{
@@ -589,6 +606,14 @@ const ProductSearch = () => {
     form.setValue('listingType', value);
   };
 
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart`,
+    });
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -774,84 +799,101 @@ const ProductSearch = () => {
 
                           <div className="border-t pt-2 mt-2">
                             <p className={`font-medium mb-1 flex items-center gap-2 ${getTextColorClass(product.listingType)}`}>
-                              <User className="h4 w-4" />
+                              <User className="w-4 h-4" />
                               Local Admins:
                             </p>
                             <div className="flex flex-wrap gap-2">
-                                                              {product.admins && product.admins.length > 0 ? (
-                                  product.admins.map((admin) => (
-                                    <button
-                                      key={admin.id}
-                                      onClick={async () => {
-                                        try {
-                                          const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
-                                          const data = await response.json();
-                                          toast({
-                                            title: "Local Admin Contact Information",
-                                            description: (
-                                              <div className="mt-2 space-y-2">
-                                                <p><strong>Name:</strong> {data.name || data.username}</p>
-                                                <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
-                                                <div className="flex flex-col gap-2">
-                                                  <p className="font-semibold">Contact Options:</p>
-                                                  <div className="flex gap-2">
-                                                    <a
-                                                      href={getPhoneLink(data.mobileNumber)}
-                                                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                                                    >
-                                                      <PhoneIcon className="w-4 h-4" />
-                                                      Call
-                                                    </a>
-                                                    <a
-                                                      href={getWhatsAppLink(data.mobileNumber)}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                                                    >
-                                                      <MessageCircle className="w-4 h-4" />
-                                                      WhatsApp
-                                                    </a>
-                                                  </div>
+                              {product.admins && product.admins.length > 0 ? (
+                                product.admins.map((admin) => (
+                                  <button
+                                    key={admin.id}
+                                    onClick={async () => {
+                                      try {
+                                        const response = await apiRequest("GET", `/api/users/admin/${admin.id}`);
+                                        const data = await response.json();
+                                        toast({
+                                          title: "Local Admin Contact Information",
+                                          description: (
+                                            <div className="mt-2 space-y-2">
+                                              <p><strong>Name:</strong> {data.name || data.username}</p>
+                                              <p><strong>Location:</strong> {data.location || 'Location not set'}</p>
+                                              <div className="flex flex-col gap-2">
+                                                <p className="font-semibold">Contact Options:</p>
+                                                <div className="flex gap-2">
+                                                  <a
+                                                    href={getPhoneLink(data.mobileNumber)}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                                  >
+                                                    <PhoneIcon className="w-4 h-4" />
+                                                    Call
+                                                  </a>
+                                                  <a
+                                                    href={getWhatsAppLink(data.mobileNumber)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                                                  >
+                                                    <MessageCircle className="w-4 h-4" />
+                                                    WhatsApp
+                                                  </a>
                                                 </div>
                                               </div>
-                                            ),
-                                            duration: 10000,
-                                          });
-                                        } catch (error) {
-                                          console.error('Error fetching admin details:', error);
-                                          toast({
-                                            title: "Error",
-                                            description: error instanceof Error ? error.message : "Failed to fetch admin details",
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      }}
-                                      className={`username inline-flex items-center px-2 py-1 rounded-full ${
-                                        admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
-                                          ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
-                                          : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
-                                          ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
-                                          : 'bg-primary/10 hover:bg-primary/20'
-                                      } transition-colorscursor-pointer`}
-                                    >
-                                      {admin.username}
-                                    </button>
-                                  ))
-                                ) : (
-                                  <span className="text-sm text-muted-foreground">No local admins assigned</span>
-                                )}
+                                            </div>
+                                          ),
+                                          duration: 10000,
+                                        });
+                                      } catch (error) {
+                                        console.error('Error fetching admin details:', error);
+                                        toast({
+                                          title: "Error",
+                                          description: error instanceof Error ? error.message : "Failed to fetch admin details",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                    className={`username inline-flex items-center px-2 py-1 rounded-full ${
+                                      admin.adminType === 'super_admin' && admin.adminStatus === 'approved'
+                                        ? `bg-violet-100 ${getTextColorClass(product.listingType)} hover:bg-violet-200`
+                                        : admin.adminType === 'local_admin' && admin.adminStatus === 'approved'
+                                        ? `bg-purple-100 ${getTextColorClass(product.listingType)} hover:bg-purple-200`
+                                        : 'bg-primary/10 hover:bg-primary/20'
+                                    } transition-colorscursor-pointer`}
+                                  >
+                                    {admin.username}
+                                  </button>
+                                ))
+                              ) : (
+                                <span className="text-sm text-muted-foreground">No local admins assigned</span>
+                              )}
                             </div>
                           </div>
 
-                          <Button
-                            className={`w-full mt-4 flex items-center justify-center gap-2 ${
-                              product.listingType === 'buyer' ? 'bg-red-500 hover:bg-red-600' : ''
-                            }`}
-                            onClick={() => handleContactSeller(product.id)}
-                          >
-                            <Phone className="h-4 w-4" />
-                            {product.listingType === 'buyer' ? 'Contact Buyer' : 'Contact Seller'} ({product.contactRequests || 0} requests)
-                          </Button>
+                          <div className="flex justify-between items-center mt-4">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Eye className="w-4 h-4" />
+                              <span>{product.views} views</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {product.listingType === 'seller' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddToCart(product)}
+                                  className="flex items-center gap-2"
+                                >
+                                  <ShoppingCart className="w-4 h-4" />
+                                  Add to Cart
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={() => handleContactSeller(product.id)}
+                                className="flex items-center gap-2"
+                              >
+                                <PhoneIcon className="w-4 h-4" />
+                                Contact ({product.contactRequests || 0})
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

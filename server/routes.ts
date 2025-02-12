@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { insertProductSchema, insertUserSchema, updateProfileSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
+import { insertCartItemSchema } from "@shared/schema";
 
 enum ADMIN_ROLES {
   LOCAL_ADMIN = "local_admin",
@@ -437,7 +438,7 @@ export function registerRoutes(app: Express): Server {
       const product = await storage.createProduct({
         ...validatedData,
         sellerId: req.user.id,  // Ensure sellerId is set again
-        localAdminIds: req.body.localAdminIds || [], 
+        localAdminIds: req.body.localAdminIds || [],
       });
 
       console.log("Created product:", product);
@@ -460,9 +461,17 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const product = await storage.getProductById(Number(req.params.id));
+      console.log("Product update request:", {
+        productId: req.params.id,
+        userId: req.user?.id,
+        data: req.body
+      });
+
+      const productId = Number(req.params.id);
+      const product = await storage.getProductById(productId);
 
       if (!product) {
+        console.log("Product not found:", productId);
         return res.status(404).json({
           message: "Product not found",
           error: "Invalid product ID"
@@ -470,22 +479,37 @@ export function registerRoutes(app: Express): Server {
       }
 
       if (product.sellerId !== req.user?.id) {
+        console.log("Unauthorized update attempt:", {
+          productSeller: product.sellerId,
+          requestingUser: req.user.id
+        });
         return res.status(403).json({
           message: "You can only update your own products",
           error: "Permission denied"
         });
       }
 
+      // Validate update data
+      const validatedData = insertProductSchema.partial().parse({
+        ...req.body,
+        quantity: Number(req.body.quantity),
+        targetPrice: Number(req.body.targetPrice),
+      });
+
+      console.log("Validated update data:", validatedData);
+
       // Update the product
-      const updatedProduct = await storage.updateProduct(product.id, req.body);
+      const updatedProduct = await storage.updateProduct(productId, validatedData);
 
       if (!updatedProduct) {
-        return res.status(404).json({
+        console.log("Failed to update product:", productId);
+        return res.status(500).json({
           message: "Failed to update product",
-          error: "Product not found"
+          error: "Database update failed"
         });
       }
 
+      console.log("Product updated successfully:", updatedProduct);
       res.json(updatedProduct);
     } catch (error) {
       console.error("Error updating product:", error);
@@ -760,6 +784,107 @@ export function registerRoutes(app: Express): Server {
       console.error("Registration error:", error);
       res.status(400).json({
         message: "Failed to register user",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Cart routes
+  app.get("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const cartItems = await storage.getCartItems(req.user!.id);
+      res.json(cartItems);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      res.status(500).json({
+        message: "Failed to fetch cart items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCartItemSchema.parse({
+        productId: req.body.productId,
+        quantity: req.body.quantity
+      });
+
+      const cartItem = await storage.addCartItem(req.user!.id, validatedData);
+      res.status(201).json(cartItem);
+    } catch (error) {
+      console.error("Error adding item to cart:", error);
+      res.status(400).json({
+        message: "Failed to add item to cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      const quantity = Number(req.body.quantity);
+
+      if (isNaN(productId) || isNaN(quantity)) {
+        return res.status(400).json({
+          message: "Invalid product ID or quantity",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      const cartItem = await storage.updateCartItemQuantity(
+        req.user!.id,
+        productId,
+        quantity
+      );
+
+      if (!cartItem && quantity > 0) {
+        return res.status(404).json({
+          message: "Cart item not found",
+          error: "ITEM_NOT_FOUND"
+        });
+      }
+
+      res.json(cartItem || { removed: true });
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(500).json({
+        message: "Failed to update cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({
+          message: "Invalid product ID",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      await storage.removeCartItem(req.user!.id, productId);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error removing cart item:", error);
+      res.status(500).json({
+        message: "Failed to remove cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart", requireAuth, async (req, res) => {
+    try {
+      await storage.clearCart(req.user!.id);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({
+        message: "Failed to clear cart",
         error: error instanceof Error ? error.message : String(error)
       });
     }

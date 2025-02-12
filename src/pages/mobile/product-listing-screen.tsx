@@ -44,15 +44,26 @@ export default function ProductListingScreen({ route, navigation }: Props) {
       targetPrice: 0,
       city: '',
       state: '',
-      condition: 'new',
-      category: 'other',
+      condition: 'new' as const,
+      category: 'other' as const,
     }
   });
 
   const onSubmit = async (data: ProductFormData) => {
     try {
+      console.log('Submitting product data:', data);
       const endpoint = editProduct ? `/api/products/${editProduct.id}` : '/api/products';
       const method = editProduct ? 'PATCH' : 'POST';
+
+      const formattedData = {
+        ...data,
+        quantity: Number(data.quantity),
+        targetPrice: Number(data.targetPrice),
+        sellerId: editProduct?.sellerId,
+        localAdminIds: editProduct?.localAdminIds || [],
+      };
+
+      console.log('Formatted product data:', formattedData);
 
       const response = await fetch(endpoint, {
         method,
@@ -60,26 +71,27 @@ export default function ProductListingScreen({ route, navigation }: Props) {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(data),
+        body: JSON.stringify(formattedData),
       });
 
-      if (response.ok) {
-        navigation.navigate('Profile');
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
+        console.error('Product update error:', errorData);
         Alert.alert('Error', errorData.message || 'Failed to save product');
+        return;
       }
+
+      const updatedProduct = await response.json();
+      console.log('Product updated successfully:', updatedProduct);
+      navigation.navigate('Profile');
     } catch (error) {
       console.error('Product submission error:', error);
       Alert.alert('Error', 'Failed to connect to server');
     }
   };
 
-  // Function to search admins
   const searchAdmins = () => {
-    // This will trigger searching for admins based on the adminSearchQuery
     Alert.alert('Searching', `Searching for admins with query: ${adminSearchQuery}`);
-    // Actual implementation would go here
   };
 
   return (
@@ -87,7 +99,6 @@ export default function ProductListingScreen({ route, navigation }: Props) {
       <ScrollView style={styles.content}>
         <Text style={styles.title}>{editProduct ? 'Edit Product' : 'List New Product'}</Text>
 
-        {/* Add Admin Search Section */}
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}

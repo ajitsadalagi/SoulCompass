@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Product } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle } from "lucide-react";
+import { Eye, Phone as PhoneIcon, MapPin, Clock, Trash2, Shield, User, MessageCircle, ShoppingCart } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { getCategoryEmoji, getProductEmoji } from "../../../shared/helpers";
+import { useCart } from "@/lib/cart-context";
 
 // Helper function to calculate distance between two points
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -55,18 +56,24 @@ function getTextColorClass(listingType: 'buyer' | 'seller'): string {
 
 // Update the card style function
 function getCardStyle(product: Product): string {
-  const admins = product.admins || [];
-  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
-  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
+  // Check if the seller is an admin
+  const seller = product.seller;
+  const isAdminSeller = seller && seller.adminStatus === 'approved';
 
-  if (superAdmin && product.sellerId === superAdmin.id) {
-    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
-  }
-  if (localAdmin && product.sellerId === localAdmin.id) {
+  if (isAdminSeller) {
+    // Check for specific admin type to determine glow color
+    const isSuperAdmin = seller.adminType === 'super_admin';
+
+    // Apply violet glow for super admin listings
+    if (isSuperAdmin) {
+      return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
+    }
+
+    // Apply purple glow for local admin listings
     return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
   }
 
-  // Regular user listing
+  // Regular user listing (non-admin)
   return product.listingType === 'buyer'
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
@@ -103,6 +110,7 @@ export default function HomePage() {
   } | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const getLocation = async () => {
@@ -251,6 +259,15 @@ export default function HomePage() {
     }
   };
 
+  // Add function to handle adding to cart
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart`,
+    });
+  };
+
   if (!user) {
     return null;
   }
@@ -383,14 +400,26 @@ export default function HomePage() {
                   <Eye className="w-4 h-4" />
                   <span>{product.views} views</span>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleContactSeller(product.id)}
-                  className="flex items-center gap-2"
-                >
-                  <PhoneIcon className="w-4 h-4" />
-                  Contact ({product.contactRequests || 0})
-                </Button>
+                <div className="flex items-center gap-2">
+                  {product.listingType === 'seller' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddToCart(product)}
+                      className="flex items-center gap-2"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Add to Cart
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => handleContactSeller(product.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <PhoneIcon className="w-4 h-4" />
+                    Contact ({product.contactRequests || 0})
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
