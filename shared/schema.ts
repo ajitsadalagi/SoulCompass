@@ -3,12 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Define table names as const for referencing
-const TABLE_NAMES = {
+export const TABLE_NAMES = {
   USERS: "users",
   PRODUCTS: "products",
   PRODUCT_ADMINS: "product_admins",
   BUYER_REQUESTS: "buyer_requests",
-  BUYER_REQUEST_ADMINS: "buyer_request_admins"
+  BUYER_REQUEST_ADMINS: "buyer_request_admins",
+  CART_ITEMS: "cart_items"
 } as const;
 
 // Define admin roles as const for type safety
@@ -199,6 +200,25 @@ export const insertBuyerRequestSchema = createInsertSchema(buyerRequests, {
 // Add buyer request admin schema
 export const insertBuyerRequestAdminSchema = createInsertSchema(buyerRequestAdmins);
 
+// Cart items table to store items in user's cart
+export const cartItems = pgTable(TABLE_NAMES.CART_ITEMS, {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  productId: integer("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Create insert schema for cart items
+export const insertCartItemSchema = createInsertSchema(cartItems, {
+  quantity: z.number().int().positive("Quantity must be positive"),
+}).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -216,3 +236,5 @@ export type BuyerRequest = typeof buyerRequests.$inferSelect & {
 };
 export type BuyerRequestAdmin = typeof buyerRequestAdmins.$inferSelect;
 export type InsertBuyerRequestAdmin = z.infer<typeof insertBuyerRequestAdminSchema>;
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+export type CartItem = typeof cartItems.$inferSelect;

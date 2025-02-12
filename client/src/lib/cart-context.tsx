@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Product } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface CartItem {
   id: number;
@@ -27,84 +29,117 @@ interface CartContextType {
   totalItems: number;
   totalPrice: number;
   addToCart: (product: Product) => void;
+  isLoading: boolean;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
 
-const isValidCartItem = (item: any): item is CartItem => {
-  return (
-    typeof item === 'object' &&
-    typeof item.id === 'number' &&
-    typeof item.name === 'string' &&
-    typeof item.quantity === 'number' &&
-    typeof item.sellerId === 'number'
-  );
-};
-
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const queryClient = useQueryClient();
 
-  const getCartKey = () => {
-    if (user?.id) {
-      return `cart_${user.id}`;
-    }
-    return null; // Return null for unauthenticated users
-  };
+  // Fetch cart items from the database
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['cart', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const response = await apiRequest('GET', '/api/cart');
+      const data = await response.json();
+      return data.map((item: any) => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: parseFloat(item.product.targetPrice),
+        quantity: item.quantity,
+        sellerId: item.product.sellerId,
+        quality: item.product.quality,
+        category: item.product.category,
+        city: item.product.city,
+        state: item.product.state,
+        latitude: item.product.latitude,
+        longitude: item.product.longitude,
+        image: item.product.image,
+      }));
+    },
+    enabled: !!user?.id,
+  });
 
-  // Load cart data when user changes
-  useEffect(() => {
-    const cartKey = getCartKey();
-    if (!cartKey) {
-      setItems([]); // Clear cart for unauthenticated users
-      return;
-    }
-
-    try {
-      const savedCart = localStorage.getItem(cartKey);
-      if (savedCart) {
-        const parsedCart = JSON.parse(savedCart);
-        if (Array.isArray(parsedCart) && parsedCart.every(isValidCartItem)) {
-          setItems(parsedCart);
-        } else {
-          localStorage.removeItem(cartKey);
-          setItems([]);
-        }
-      } else {
-        setItems([]); // Initialize empty cart for new users
-      }
-    } catch (error) {
-      console.error('Error loading cart:', error);
+  // Add item mutation
+  const addItemMutation = useMutation({
+    mutationFn: async (item: CartItem) => {
+      const response = await apiRequest('POST', '/api/cart', {
+        productId: item.id,
+        quantity: 1,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to load your cart data",
+        description: error instanceof Error ? error.message : "Failed to add item to cart",
         variant: "destructive",
       });
-      setItems([]); // Reset to empty cart on error
-    }
-  }, [user?.id, toast]);
+    },
+  });
 
-  // Save cart data when items change
-  useEffect(() => {
-    const cartKey = getCartKey();
-    if (!cartKey) return; // Don't save cart for unauthenticated users
-
-    try {
-      if (items.length === 0) {
-        localStorage.removeItem(cartKey);
-      } else {
-        localStorage.setItem(cartKey, JSON.stringify(items));
-      }
-    } catch (error) {
-      console.error('Error saving cart:', error);
+  // Remove item mutation
+  const removeItemMutation = useMutation({
+    mutationFn: async (productId: number) => {
+      await apiRequest('DELETE', `/api/cart/${productId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to save cart data",
+        description: error instanceof Error ? error.message : "Failed to remove item from cart",
         variant: "destructive",
       });
-    }
-  }, [items, user?.id, toast]);
+    },
+  });
+
+  // Update quantity mutation
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ productId, quantity }: { productId: number; quantity: number }) => {
+      const response = await apiRequest('PATCH', `/api/cart/${productId}`, { quantity });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update quantity",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Clear cart mutation
+  const clearCartMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest('DELETE', '/api/cart');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart', user?.id] });
+      toast({
+        title: "Cart Cleared",
+        description: "All items have been removed from your cart",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to clear cart",
+        variant: "destructive",
+      });
+    },
+  });
 
   const addItem = (newItem: CartItem) => {
     if (!user?.id) {
@@ -116,34 +151,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setItems(currentItems => {
-      const existingItem = currentItems.find(item => item.id === newItem.id);
-      if (existingItem) {
-        toast({
-          title: "Already in Cart",
-          description: "This item is already in your cart",
-        });
-        return currentItems;
-      }
-
+    const existingItem = items.find(item => item.id === newItem.id);
+    if (existingItem) {
       toast({
-        title: "Added to Cart",
-        description: `${newItem.name} has been added to your cart`,
+        title: "Already in Cart",
+        description: "This item is already in your cart",
       });
+      return;
+    }
 
-      return [...currentItems, { ...newItem, quantity: 1 }];
+    addItemMutation.mutate(newItem);
+    toast({
+      title: "Added to Cart",
+      description: `${newItem.name} has been added to your cart`,
     });
   };
 
   const removeItem = (id: number) => {
-    setItems(currentItems => {
-      const newItems = currentItems.filter(item => item.id !== id);
-      toast({
-        title: "Removed from Cart",
-        description: "Item has been removed from your cart",
-      });
-      return newItems;
-    });
+    removeItemMutation.mutate(id);
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
@@ -156,23 +181,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setItems(currentItems =>
-      currentItems.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    updateQuantityMutation.mutate({ productId: id, quantity: newQuantity });
   };
 
   const clearCart = () => {
-    setItems([]);
-    const cartKey = getCartKey();
-    if (cartKey) {
-      localStorage.removeItem(cartKey);
-    }
-    toast({
-      title: "Cart Cleared",
-      description: "All items have been removed from your cart",
-    });
+    clearCartMutation.mutate();
   };
 
   const addToCart = (product: Product) => {
@@ -215,6 +228,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     totalItems,
     totalPrice,
     addToCart,
+    isLoading,
   };
 
   return (

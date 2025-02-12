@@ -4,6 +4,7 @@ import { setupAuth } from "./auth";
 import { insertProductSchema, insertUserSchema, updateProfileSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { z } from "zod";
+import { insertCartItemSchema } from "@shared/schema";
 
 enum ADMIN_ROLES {
   LOCAL_ADMIN = "local_admin",
@@ -783,6 +784,107 @@ export function registerRoutes(app: Express): Server {
       console.error("Registration error:", error);
       res.status(400).json({
         message: "Failed to register user",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Cart routes
+  app.get("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const cartItems = await storage.getCartItems(req.user!.id);
+      res.json(cartItems);
+    } catch (error) {
+      console.error("Error fetching cart items:", error);
+      res.status(500).json({
+        message: "Failed to fetch cart items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/cart", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCartItemSchema.parse({
+        productId: req.body.productId,
+        quantity: req.body.quantity
+      });
+
+      const cartItem = await storage.addCartItem(req.user!.id, validatedData);
+      res.status(201).json(cartItem);
+    } catch (error) {
+      console.error("Error adding item to cart:", error);
+      res.status(400).json({
+        message: "Failed to add item to cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      const quantity = Number(req.body.quantity);
+
+      if (isNaN(productId) || isNaN(quantity)) {
+        return res.status(400).json({
+          message: "Invalid product ID or quantity",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      const cartItem = await storage.updateCartItemQuantity(
+        req.user!.id,
+        productId,
+        quantity
+      );
+
+      if (!cartItem && quantity > 0) {
+        return res.status(404).json({
+          message: "Cart item not found",
+          error: "ITEM_NOT_FOUND"
+        });
+      }
+
+      res.json(cartItem || { removed: true });
+    } catch (error) {
+      console.error("Error updating cart item:", error);
+      res.status(500).json({
+        message: "Failed to update cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart/:productId", requireAuth, async (req, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({
+          message: "Invalid product ID",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      await storage.removeCartItem(req.user!.id, productId);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error removing cart item:", error);
+      res.status(500).json({
+        message: "Failed to remove cart item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart", requireAuth, async (req, res) => {
+    try {
+      await storage.clearCart(req.user!.id);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      res.status(500).json({
+        message: "Failed to clear cart",
         error: error instanceof Error ? error.message : String(error)
       });
     }

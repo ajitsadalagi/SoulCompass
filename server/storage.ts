@@ -1,5 +1,5 @@
 import { ADMIN_ROLES, ADMIN_STATUSES, type User, type InsertUser, type Product, type ProductAdmin, type InsertProduct } from "@shared/schema";
-import { users, products, productAdmins } from "@shared/schema";
+import { users, products, productAdmins, cartItems, type CartItem, type InsertCartItem } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, asc, sql } from "drizzle-orm";
 import session from "express-session";
@@ -35,6 +35,11 @@ export interface IStorage {
   registerAdminRole(userId: number, adminType: string): Promise<User | undefined>;
   requestAdminApproval(userId: number, adminType: string, requestedAdminId?: number): Promise<User | undefined>;
   deleteUser(id: number): Promise<void>;
+  getCartItems(userId: number): Promise<(CartItem & { product: Product })[]>;
+  addCartItem(userId: number, cartItem: Omit<InsertCartItem, "userId">): Promise<CartItem>;
+  updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined>;
+  removeCartItem(userId: number, productId: number): Promise<void>;
+  clearCart(userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -403,6 +408,97 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+  async getCartItems(userId: number): Promise<(CartItem & { product: Product })[]> {
+    const items = await db
+      .select({
+        cartItem: cartItems,
+        product: products,
+      })
+      .from(cartItems)
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .where(eq(cartItems.userId, userId));
+
+    return items.map(({ cartItem, product }) => ({
+      ...cartItem,
+      product,
+    }));
+  }
+
+  async addCartItem(userId: number, cartItem: Omit<InsertCartItem, "userId">): Promise<CartItem> {
+    // Check if item already exists in cart
+    const [existingItem] = await db
+      .select()
+      .from(cartItems)
+      .where(
+        and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, cartItem.productId)
+        )
+      );
+
+    if (existingItem) {
+      // Update quantity if item exists
+      const [updated] = await db
+        .update(cartItems)
+        .set({
+          quantity: existingItem.quantity + cartItem.quantity,
+          updatedAt: new Date(),
+        })
+        .where(eq(cartItems.id, existingItem.id))
+        .returning();
+      return updated;
+    }
+
+    // Insert new item if it doesn't exist
+    const [newItem] = await db
+      .insert(cartItems)
+      .values({
+        userId,
+        ...cartItem,
+        createdAt: new Date(),
+      })
+      .returning();
+    return newItem;
+  }
+
+  async updateCartItemQuantity(userId: number, productId: number, quantity: number): Promise<CartItem | undefined> {
+    if (quantity <= 0) {
+      await this.removeCartItem(userId, productId);
+      return undefined;
+    }
+
+    const [updated] = await db
+      .update(cartItems)
+      .set({
+        quantity,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId)
+        )
+      )
+      .returning();
+    return updated;
+  }
+
+  async removeCartItem(userId: number, productId: number): Promise<void> {
+    await db
+      .delete(cartItems)
+      .where(
+        and(
+          eq(cartItems.userId, userId),
+          eq(cartItems.productId, productId)
+        )
+      );
+  }
+
+  async clearCart(userId: number): Promise<void> {
+    await db
+      .delete(cartItems)
+      .where(eq(cartItems.userId, userId));
   }
 }
 
