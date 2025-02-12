@@ -235,11 +235,19 @@ export function AdminRequestForm() {
               )}
             </div>
           ) : (
-            // For super admin requests, send directly to masteradmin123
+            // For super admin requests
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Your super admin request will be reviewed by the master administrator.
+                As a Super Admin candidate, your request will be reviewed by the Master Administrator.
               </p>
+              <div className="space-y-2">
+                <p className="text-sm">Master Admin Review Process:</p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                  <li>Your request will be sent directly to the Master Administrator</li>
+                  <li>Review typically takes 1-2 business days</li>
+                  <li>You'll be notified once your request is processed</li>
+                </ul>
+              </div>
               <Button
                 onClick={() => adminRequestMutation.mutate({
                   adminType: "super_admin",
@@ -248,7 +256,7 @@ export function AdminRequestForm() {
                 disabled={adminRequestMutation.isPending}
                 className="w-full"
               >
-                Request Super Admin Approval
+                Send Super Admin Approval Request
               </Button>
             </div>
           )}
@@ -287,15 +295,24 @@ export function AdminRequestForm() {
     return (
       <Card>
         <CardContent className="pt-6">
-          <div className="text-center">
+          <div className="text-center space-y-4">
             <Badge variant="destructive">
               Rejected {user.adminType === "super_admin" ? "Super Admin" : "Local Admin"}
             </Badge>
             {user.adminRejectionReason && (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Reason: {user.adminRejectionReason}
               </p>
             )}
+            <div className="pt-4">
+              <Button
+                onClick={() => registerAdminMutation.mutate(user.adminType)}
+                disabled={registerAdminMutation.isPending}
+                variant="outline"
+              >
+                Try Again
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
