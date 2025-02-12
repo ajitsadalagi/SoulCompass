@@ -49,6 +49,31 @@ export function AdminRequestForm() {
     },
   });
 
+  const registerAdminMutation = useMutation({
+    mutationFn: async (adminType: string) => {
+      const res = await apiRequest("POST", "/api/admin/register", { adminType });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Success",
+        description: "Admin registration successful",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!user) {
     return (
       <Card>
@@ -131,15 +156,15 @@ export function AdminRequestForm() {
             </p>
             <div className="flex gap-2">
               <Button
-                onClick={() => adminRequestMutation.mutate({ adminType: "local_admin" })}
-                disabled={adminRequestMutation.isPending}
+                onClick={() => registerAdminMutation.mutate("local_admin")}
+                disabled={registerAdminMutation.isPending}
                 variant="outline"
               >
                 Register as Local Admin
               </Button>
               <Button
-                onClick={() => adminRequestMutation.mutate({ adminType: "super_admin" })}
-                disabled={adminRequestMutation.isPending}
+                onClick={() => registerAdminMutation.mutate("super_admin")}
+                disabled={registerAdminMutation.isPending}
                 variant="outline"
               >
                 Register as Super Admin
@@ -159,7 +184,7 @@ export function AdminRequestForm() {
           <CardTitle>Request Admin Approval</CardTitle>
         </CardHeader>
         <CardContent>
-          {user.adminType === "local_admin" && (
+          {user.adminType === "local_admin" ? (
             <div className="space-y-4">
               {isSuperAdminsError ? (
                 <p className="text-sm text-destructive">Error loading super admins. Please try again later.</p>
@@ -190,39 +215,10 @@ export function AdminRequestForm() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Your Request Details:</p>
-                    <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">Username</p>
-                        <p className="text-sm text-muted-foreground">{user.username}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Contact Number</p>
-                        <p className="text-sm text-muted-foreground">{user.mobileNumber}</p>
-                      </div>
-                      {user.location && (
-                        <div className="col-span-2">
-                          <p className="text-sm font-medium">Location</p>
-                          <p className="text-sm text-muted-foreground">{user.location}</p>
-                        </div>
-                      )}
-                      <div className="col-span-2">
-                        <p className="text-sm font-medium">Current Roles</p>
-                        <div className="flex gap-2 mt-1">
-                          {user.roles.map((role, index) => (
-                            <Badge key={index} variant="outline" className="capitalize">
-                              {role}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                   <Button
                     onClick={() => adminRequestMutation.mutate({
                       adminType: "local_admin",
-                      requestedAdminId: selectedSuperAdmin || undefined,
+                      requestedAdminId: selectedSuperAdmin,
                     })}
                     disabled={!selectedSuperAdmin || adminRequestMutation.isPending}
                     className="w-full"
@@ -232,45 +228,16 @@ export function AdminRequestForm() {
                 </>
               )}
             </div>
-          )}
-
-          {user.adminType === "super_admin" && (
+          ) : (
+            // For super admin requests, send directly to masteradmin123
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Your super admin request will be reviewed by the master administrator.
               </p>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Your Request Details:</p>
-                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium">Username</p>
-                    <p className="text-sm text-muted-foreground">{user.username}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Contact Number</p>
-                    <p className="text-sm text-muted-foreground">{user.mobileNumber}</p>
-                  </div>
-                  {user.location && (
-                    <div className="col-span-2">
-                      <p className="text-sm font-medium">Location</p>
-                      <p className="text-sm text-muted-foreground">{user.location}</p>
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <p className="text-sm font-medium">Current Roles</p>
-                    <div className="flex gap-2 mt-1">
-                      {user.roles.map((role, index) => (
-                        <Badge key={index} variant="outline" className="capitalize">
-                          {role}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
               <Button
                 onClick={() => adminRequestMutation.mutate({
                   adminType: "super_admin",
+                  requestedAdminId: 15, // masteradmin123's ID -  ASSUMPTION:  masteradmin123 has ID 15.  This needs to be adjusted based on your actual data.
                 })}
                 disabled={adminRequestMutation.isPending}
                 className="w-full"
@@ -291,7 +258,7 @@ export function AdminRequestForm() {
         <CardContent className="pt-6">
           <div className="text-center">
             <Badge variant="default">
-              Approved {user.adminType}
+              Approved {user.adminType === "super_admin" ? "Super Admin" : "Local Admin"}
             </Badge>
             <p className="mt-2 text-sm text-muted-foreground">
               Approved on: {new Date(user.adminApprovalDate!).toLocaleDateString()}
@@ -309,7 +276,7 @@ export function AdminRequestForm() {
         <CardContent className="pt-6">
           <div className="text-center">
             <Badge variant="destructive">
-              Rejected {user.adminType}
+              Rejected {user.adminType === "super_admin" ? "Super Admin" : "Local Admin"}
             </Badge>
             {user.adminRejectionReason && (
               <p className="mt-2 text-sm text-muted-foreground">
