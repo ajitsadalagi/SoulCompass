@@ -40,6 +40,7 @@ export interface IStorage {
   untagAdmin(userId: number, adminId: number): Promise<void>;
   getTaggedAdmins(userId: number): Promise<User[]>;
   getNearbyAdmins(latitude: number, longitude: number, radiusKm: number): Promise<User[]>;
+  searchAdmins(query: string): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -459,6 +460,25 @@ export class DatabaseStorage implements IStorage {
     );
 
     return result.rows as User[];
+  }
+  async searchAdmins(query: string): Promise<User[]> {
+    const searchPattern = `%${query}%`;
+
+    return db.select()
+      .from(users)
+      .where(
+        sql`(
+          (${users.adminType} IN ('local_admin', 'super_admin'))
+          AND (${users.adminStatus} = 'approved')
+          AND (
+            ${users.username} ILIKE ${searchPattern}
+            OR ${users.firstName} ILIKE ${searchPattern}
+            OR ${users.lastName} ILIKE ${searchPattern}
+            OR ${users.location} ILIKE ${searchPattern}
+          )
+        )`
+      )
+      .orderBy(asc(users.username));
   }
 }
 

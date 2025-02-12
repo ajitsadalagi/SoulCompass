@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Map } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
 import { FiSearch, FiMapPin, FiUser } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import debounce from "lodash/debounce";
 
 interface Admin {
@@ -23,14 +24,14 @@ interface Admin {
 
 export function AdminSearchSection() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [mapCenter] = useState({ lat: 20.5937, lng: 78.9629 });
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Query for nearby admins
-  const { data: nearbyAdmins, isLoading: isLoadingNearby } = useQuery<Admin[]>({
-    queryKey: ["/api/admins/nearby", selectedLocation?.lat, selectedLocation?.lng],
-    enabled: !!selectedLocation,
+  const { data: nearbyAdmins, isLoading: isLoadingNearby } = useQuery({
+    queryKey: ["/api/admins/nearby", selectedLocation?.lat, selectedLocation?.lng] as const,
+    enabled: !!selectedLocation && !!user,
     queryFn: async () => {
       if (!selectedLocation) return [];
       const params = new URLSearchParams({
@@ -38,27 +39,31 @@ export function AdminSearchSection() {
         lng: selectedLocation.lng.toString(),
         radius: "50" // 50km radius
       });
-      const response = await fetch(`/api/admins/nearby?${params}`);
+      const response = await fetch(`/api/admins/nearby?${params}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch nearby admins');
-      return response.json();
+      return response.json() as Promise<Admin[]>;
     }
   });
 
   // Query for admin search by name
-  const { data: searchResults, isLoading: isLoadingSearch } = useQuery<Admin[]>({
-    queryKey: ["/api/admins/search", searchQuery],
-    enabled: searchQuery.length > 2,
+  const { data: searchResults, isLoading: isLoadingSearch } = useQuery({
+    queryKey: ["/api/admins/search", searchQuery] as const,
+    enabled: searchQuery.length > 2 && !!user,
     queryFn: async () => {
       const params = new URLSearchParams({ query: searchQuery });
-      const response = await fetch(`/api/admins/search?${params}`);
+      const response = await fetch(`/api/admins/search?${params}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to search admins');
-      return response.json();
+      return response.json() as Promise<Admin[]>;
     }
   });
 
   // Debounced search handler
-  const debouncedSearch = useMemo(
-    () => debounce((value: string) => {
+  const debouncedSearch = useCallback(
+    debounce((value: string) => {
       setSearchQuery(value);
     }, 500),
     []
@@ -81,6 +86,14 @@ export function AdminSearchSection() {
       duration: 5000,
     });
   };
+
+  if (!user) {
+    return (
+      <div className="text-center py-8">
+        <p>Please log in to search for admins.</p>
+      </div>
+    );
+  }
 
   const renderAdminList = (admins: Admin[] | undefined, isLoading: boolean) => {
     if (isLoading) {
@@ -152,8 +165,7 @@ export function AdminSearchSection() {
           <div className="space-y-4">
             <div className="h-[300px] rounded-lg overflow-hidden border">
               <Map
-                defaultCenter={mapCenter}
-                defaultZoom={5}
+                defaultCenter={{ lat: 20.5937, lng: 78.9629 }}
                 onMapClick={handleLocationSelect}
                 markers={nearbyAdmins?.map((admin) => ({
                   position: {
@@ -161,7 +173,10 @@ export function AdminSearchSection() {
                     lng: admin.longitude!
                   },
                   title: admin.name || admin.username
-                })) ?? []}
+                })).filter(marker => 
+                  marker.position.lat != null && 
+                  marker.position.lng != null
+                ) ?? []}
               />
             </div>
             {selectedLocation && (

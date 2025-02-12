@@ -858,10 +858,15 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add admin search endpoint
+  // Update the admin search endpoint
   app.get("/api/admins/search", requireAuth, async (req, res) => {
     try {
       const { query } = req.query;
+      console.log("Admin search request:", {
+        user: req.user?.id,
+        query,
+        isAuthenticated: req.isAuthenticated()
+      });
 
       if (!query) {
         return res.status(400).json({
@@ -871,6 +876,8 @@ export function registerRoutes(app: Express): Server {
       }
 
       const searchResults = await storage.searchAdmins(query as string);
+      console.log("Admin search results:", searchResults.length);
+
       res.json(searchResults);
 
     } catch (error) {
