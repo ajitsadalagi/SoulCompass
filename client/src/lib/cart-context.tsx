@@ -46,8 +46,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Function to get cart key for current user
-  const getCartKey = (userId: number) => `cart_${userId}`;
+  // Function to get cart key for current user with username for better uniqueness
+  const getCartKey = (userId: number, username: string) => `cart_${userId}_${username}`;
 
   // Load cart data when user changes
   useEffect(() => {
@@ -55,8 +55,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems([]);
 
     // Only load cart data for authenticated users
-    if (user?.id) {
-      const cartKey = getCartKey(user.id);
+    if (user?.id && user?.username) {
+      const cartKey = getCartKey(user.id, user.username);
       try {
         const savedCart = localStorage.getItem(cartKey);
         if (savedCart) {
@@ -77,12 +77,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
-  }, [user?.id, toast]);
+  }, [user?.id, user?.username, toast]);
 
   // Save cart whenever items change
   useEffect(() => {
-    if (user?.id) {
-      const cartKey = getCartKey(user.id);
+    if (user?.id && user?.username) {
+      const cartKey = getCartKey(user.id, user.username);
       try {
         if (items.length === 0) {
           localStorage.removeItem(cartKey);
@@ -98,10 +98,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
-  }, [items, user?.id, toast]);
+  }, [items, user?.id, user?.username, toast]);
 
   const addItem = (newItem: CartItem) => {
-    if (!user?.id) {
+    if (!user?.id || !user?.username) {
       toast({
         title: "Authentication Required",
         description: "Please log in to add items to your cart",
@@ -112,7 +112,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setItems(currentItems => {
       // Only modify cart if user is authenticated
-      if (!user?.id) return currentItems;
+      if (!user?.id || !user?.username) return currentItems;
 
       const existingItem = currentItems.find(item => item.id === newItem.id);
       if (existingItem) {
@@ -133,7 +133,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: number) => {
-    if (!user?.id) {
+    if (!user?.id || !user?.username) {
       toast({
         title: "Authentication Required",
         description: "Please log in to manage your cart",
@@ -144,7 +144,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setItems(currentItems => {
       // Only modify cart if user is authenticated
-      if (!user?.id) return currentItems;
+      if (!user?.id || !user?.username) return currentItems;
 
       const newItems = currentItems.filter(item => item.id !== id);
       toast({
@@ -156,7 +156,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateQuantity = (id: number, newQuantity: number) => {
-    if (!user?.id) {
+    if (!user?.id || !user?.username) {
       toast({
         title: "Authentication Required",
         description: "Please log in to update your cart",
@@ -176,7 +176,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setItems(currentItems => {
       // Only modify cart if user is authenticated
-      if (!user?.id) return currentItems;
+      if (!user?.id || !user?.username) return currentItems;
 
       return currentItems.map(item =>
         item.id === id ? { ...item, quantity: newQuantity } : item
@@ -185,7 +185,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearCart = () => {
-    if (!user?.id) {
+    if (!user?.id || !user?.username) {
       toast({
         title: "Authentication Required",
         description: "Please log in to manage your cart",
@@ -195,7 +195,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     setItems([]);
-    const cartKey = getCartKey(user.id);
+    const cartKey = getCartKey(user.id, user.username);
     localStorage.removeItem(cartKey);
     toast({
       title: "Cart Cleared",
@@ -204,7 +204,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product) => {
-    if (!user?.id) {
+    if (!user?.id || !user?.username) {
       toast({
         title: "Authentication Required",
         description: "Please log in to add items to your cart",
@@ -232,11 +232,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Calculate totals only for authenticated users
-  const totalItems = user?.id ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
-  const totalPrice = user?.id ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
+  const totalItems = user?.id && user?.username ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+  const totalPrice = user?.id && user?.username ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
 
   const value = {
-    items: user?.id ? items : [], // Only return items if user is authenticated
+    items: user?.id && user?.username ? items : [], // Only return items if user is authenticated
     addItem,
     removeItem,
     updateQuantity,
