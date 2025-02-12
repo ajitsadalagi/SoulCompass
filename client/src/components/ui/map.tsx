@@ -3,15 +3,6 @@ import { GoogleMap, LoadScript, Libraries } from "@react-google-maps/api";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "./alert";
 
-// Declare the ImportMeta interface augmentation
-declare interface ImportMetaEnv {
-  readonly VITE_GOOGLE_MAPS_API_KEY: string
-}
-
-declare interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
-
 const containerStyle = {
   width: '100%',
   height: '100%'
@@ -48,23 +39,20 @@ export function Map({
   const circleRef = useRef<google.maps.Circle>();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-  // Validate API key before proceeding
   useEffect(() => {
     if (!apiKey) {
       setMapsLoadError("Google Maps API key is missing. Please check your environment configuration.");
       setIsLoading(false);
-    }
-  }, [apiKey]);
-
-  // Get user's current location if no default center is provided
-  useEffect(() => {
-    if (defaultCenter) {
-      setCurrentLocation(defaultCenter);
-      setIsLoading(false);
       return;
     }
 
-    if ('geolocation' in navigator) {
+    if (!defaultCenter) {
+      if (!navigator.geolocation) {
+        setLocationError('Geolocation is not supported by your browser.');
+        setIsLoading(false);
+        return;
+      }
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setCurrentLocation({
@@ -75,7 +63,7 @@ export function Map({
         },
         (error) => {
           console.error('Error getting location:', error);
-          setLocationError('Unable to get your location. Please enable location services in your browser settings.');
+          setLocationError('Unable to get your location. Please enable location services.');
           setIsLoading(false);
         },
         {
@@ -85,97 +73,85 @@ export function Map({
         }
       );
     } else {
-      setLocationError('Geolocation is not supported by your browser.');
       setIsLoading(false);
     }
-  }, [defaultCenter]);
+  }, [apiKey, defaultCenter]);
 
   const handleLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    setIsLoading(false);
 
     if (onMapLoad) {
       onMapLoad(map);
     }
 
     if (enableDrawing) {
-      try {
-        const drawingManager = new google.maps.drawing.DrawingManager({
-          drawingMode: google.maps.drawing.OverlayType.CIRCLE,
-          drawingControl: true,
-          drawingControlOptions: {
-            position: google.maps.ControlPosition.TOP_CENTER,
-            drawingModes: [google.maps.drawing.OverlayType.CIRCLE],
-          },
-          circleOptions: {
-            fillColor: "#FF0000",
-            fillOpacity: 0.2,
-            strokeWeight: 2,
-            clickable: false,
-            editable: true,
-            zIndex: 1,
-          },
-        });
-
-        drawingManager.setMap(map);
-        drawingManagerRef.current = drawingManager;
-
-        google.maps.event.addListener(drawingManager, 'circlecomplete', (circle: google.maps.Circle) => {
-          if (circleRef.current) {
-            circleRef.current.setMap(null);
-          }
-
-          circleRef.current = circle;
-
-          if (onCircleComplete) {
-            onCircleComplete(circle.getCenter()!, circle.getRadius());
-          }
-
-          drawingManager.setDrawingMode(null);
-
-          google.maps.event.addListener(circle, 'radius_changed', () => {
-            if (onCircleComplete) {
-              onCircleComplete(circle.getCenter()!, circle.getRadius());
-            }
-          });
-
-          google.maps.event.addListener(circle, 'center_changed', () => {
-            if (onCircleComplete) {
-              onCircleComplete(circle.getCenter()!, circle.getRadius());
-            }
-          });
-        });
-      } catch (error) {
-        console.error('Error initializing drawing manager:', error);
-        setLoadError(error instanceof Error ? error : new Error('Failed to initialize drawing manager'));
-      }
-    }
-
-    if (circle) {
-      try {
-        if (circleRef.current) {
-          circleRef.current.setMap(null);
-        }
-
-        circleRef.current = new google.maps.Circle({
-          map,
-          center: circle.center,
-          radius: circle.radius,
+      const drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: google.maps.drawing.OverlayType.CIRCLE,
+        drawingControl: true,
+        drawingControlOptions: {
+          position: google.maps.ControlPosition.TOP_CENTER,
+          drawingModes: [google.maps.drawing.OverlayType.CIRCLE],
+        },
+        circleOptions: {
           fillColor: "#FF0000",
           fillOpacity: 0.2,
           strokeWeight: 2,
           clickable: false,
-          editable: enableDrawing,
+          editable: true,
+          zIndex: 1,
+        },
+      });
+
+      drawingManager.setMap(map);
+      drawingManagerRef.current = drawingManager;
+
+      google.maps.event.addListener(drawingManager, 'circlecomplete', (circle: google.maps.Circle) => {
+        if (circleRef.current) {
+          circleRef.current.setMap(null);
+        }
+
+        circleRef.current = circle;
+
+        if (onCircleComplete) {
+          onCircleComplete(circle.getCenter()!, circle.getRadius());
+        }
+
+        drawingManager.setDrawingMode(null);
+
+        google.maps.event.addListener(circle, 'radius_changed', () => {
+          if (onCircleComplete) {
+            onCircleComplete(circle.getCenter()!, circle.getRadius());
+          }
         });
 
-        map.setCenter(circle.center);
-        const bounds = circleRef.current.getBounds();
-        if (bounds) {
-          map.fitBounds(bounds);
-        }
-      } catch (error) {
-        console.error('Error creating circle:', error);
-        setLoadError(error instanceof Error ? error : new Error('Failed to create circle'));
+        google.maps.event.addListener(circle, 'center_changed', () => {
+          if (onCircleComplete) {
+            onCircleComplete(circle.getCenter()!, circle.getRadius());
+          }
+        });
+      });
+    }
+
+    if (circle) {
+      if (circleRef.current) {
+        circleRef.current.setMap(null);
+      }
+
+      circleRef.current = new google.maps.Circle({
+        map,
+        center: circle.center,
+        radius: circle.radius,
+        fillColor: "#FF0000",
+        fillOpacity: 0.2,
+        strokeWeight: 2,
+        clickable: false,
+        editable: enableDrawing,
+      });
+
+      map.setCenter(circle.center);
+      const bounds = circleRef.current.getBounds();
+      if (bounds) {
+        map.fitBounds(bounds);
       }
     }
   }, [enableDrawing, onCircleComplete, circle, onMapLoad]);
@@ -198,8 +174,8 @@ export function Map({
   return (
     <div className="w-full h-full relative">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/10 rounded-lg z-10">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       )}
 
@@ -212,7 +188,7 @@ export function Map({
         </Alert>
       )}
 
-      {!mapsLoadError && (
+      {!mapsLoadError && apiKey && (
         <LoadScript 
           googleMapsApiKey={apiKey}
           libraries={libraries}
@@ -221,8 +197,8 @@ export function Map({
           <div className="w-full h-full">
             <GoogleMap
               mapContainerStyle={containerStyle}
-              center={defaultCenter || currentLocation || { lat: 0, lng: 0 }}
-              zoom={currentLocation || defaultCenter ? 15 : 2}
+              center={defaultCenter || currentLocation || { lat: 20.5937, lng: 78.9629 }}
+              zoom={defaultCenter || currentLocation ? 15 : 5}
               onLoad={handleLoad}
               options={{
                 streetViewControl: false,
