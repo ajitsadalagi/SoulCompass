@@ -553,6 +553,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPendingCartShares(userId: number): Promise<(CartShare & { owner: User })[]> {
+    console.log("Fetching pending cart shares for user:", userId);
+
     const shares = await db.select()
       .from(cartShares)
       .where(
@@ -562,18 +564,28 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
+    console.log("Found pending shares:", shares);
+
     // Get owner information for each share
     const sharesWithOwners = await Promise.all(
       shares.map(async (share) => {
         const owner = await this.getUser(share.ownerUserId);
+        if (!owner) {
+          console.log("Warning: Owner not found for share:", share);
+          return null;
+        }
         return {
           ...share,
-          owner: owner!
+          owner
         };
       })
     );
 
-    return sharesWithOwners;
+    // Filter out any null results from missing owners
+    const validShares = sharesWithOwners.filter((share): share is (CartShare & { owner: User }) => share !== null);
+    console.log("Returning shares with owners:", validShares);
+
+    return validShares;
   }
 
   async updateCartShareStatus(shareId: number, userId: number, status: "accepted" | "rejected"): Promise<CartShare> {
