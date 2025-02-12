@@ -4,7 +4,7 @@ import { Card } from "./card";
 import { FiNavigation } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { Libraries, useLoadScript } from "@react-google-maps/api";
+import { Libraries } from "@react-google-maps/api";
 
 interface LocationPickerProps {
   defaultLocation?: {
@@ -18,28 +18,21 @@ interface LocationPickerProps {
     address: string;
   }) => void;
   onMapLoad?: (map: google.maps.Map) => void;
-  disabled?: boolean;
 }
-
-const libraries: Libraries = ["places"];
-const GOOGLE_MAPS_API_KEY = "AIzaSyBgP15bBcBJbl12Bl3vFsJoC-3y4rOB4Fc";
 
 export function LocationPicker({
   defaultLocation,
   onLocationSelect,
   onMapLoad,
-  disabled = false,
 }: LocationPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const { toast } = useToast();
-
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries,
-  });
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const libraries: Libraries = ["places"];
 
   const initializeMap = async () => {
     if (!mapRef.current || !window.google?.maps) {
@@ -132,6 +125,7 @@ export function LocationPicker({
 
       setMap(mapInstance);
       setMarker(markerInstance);
+      setIsLoading(false);
 
       if (onMapLoad) {
         onMapLoad(mapInstance);
@@ -142,9 +136,9 @@ export function LocationPicker({
         try {
           const geocoder = new google.maps.Geocoder();
           const result = await geocoder.geocode({
-            location: {
-              lat: initialLocation.latitude,
-              lng: initialLocation.longitude
+            location: { 
+              lat: initialLocation.latitude, 
+              lng: initialLocation.longitude 
             }
           });
           if (result.results[0]) {
@@ -160,6 +154,7 @@ export function LocationPicker({
       }
     } catch (error) {
       console.error("Error initializing map:", error);
+      setIsLoading(false);
       toast({
         title: "Error",
         description: "Failed to initialize map. Please try again.",
@@ -169,8 +164,6 @@ export function LocationPicker({
   };
 
   const handleGetCurrentLocation = async () => {
-    if (disabled) return;
-
     setIsLoadingLocation(true);
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -222,22 +215,48 @@ export function LocationPicker({
   };
 
   useEffect(() => {
-    if (isLoaded && !loadError) {
+    if (!mapRef.current) return;
+
+    const loadGoogleMaps = () => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => {
+        initializeMap();
+      };
+
+      script.onerror = () => {
+        setIsLoading(false);
+        toast({
+          title: "Error",
+          description: "Failed to load Google Maps. Please check your internet connection and try again.",
+          variant: "destructive",
+        });
+      };
+
+      document.head.appendChild(script);
+    };
+
+    // Check if the script is already loaded
+    if (window.google?.maps) {
       initializeMap();
+    } else {
+      loadGoogleMaps();
     }
-  }, [isLoaded, defaultLocation]);
 
-  if (loadError) {
-    return (
-      <Card className="p-4">
-        <div className="h-[300px] flex items-center justify-center text-center text-destructive">
-          Failed to load Google Maps. Please check if you have provided a valid API key.
-        </div>
-      </Card>
-    );
-  }
+    return () => {
+      if (map) {
+        const mapElement = mapRef.current;
+        if (mapElement && mapElement.firstChild) {
+          mapElement.removeChild(mapElement.firstChild);
+        }
+      }
+    };
+  }, [defaultLocation]);
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <Card className="p-4">
         <div className="h-[300px] flex items-center justify-center">
@@ -259,7 +278,7 @@ export function LocationPicker({
           variant="outline"
           className="w-full"
           onClick={handleGetCurrentLocation}
-          disabled={isLoadingLocation || disabled}
+          disabled={isLoadingLocation}
         >
           {isLoadingLocation ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

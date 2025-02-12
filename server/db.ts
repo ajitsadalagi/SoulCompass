@@ -1,15 +1,17 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool } from "@neondatabase/serverless";
+import { users, products, productAdmins } from "@shared/schema";
+import WebSocket from "ws";
 
-neonConfig.webSocketConstructor = ws;
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+// Configure WebSocket connection
+if (!global.WebSocket) {
+  (global as any).WebSocket = WebSocket;
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Initialize database connection with WebSocket configuration
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL 
+});
+
+// Create drizzle database instance
+export const db = drizzle(pool, { schema: { users, products, productAdmins } });

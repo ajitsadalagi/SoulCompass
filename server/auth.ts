@@ -32,15 +32,15 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || 'fallback-secret-key',
-    resave: false,
-    saveUninitialized: false,
+    resave: true, 
+    saveUninitialized: true, 
     store: new MemoryStore({
-      checkPeriod: 86400000 // 24 hours
+      checkPeriod: 86400000 
     }),
     cookie: {
       secure: app.get("env") === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000, 
       sameSite: 'lax',
       path: '/',
     },
@@ -94,14 +94,8 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Add back the login route with proper JSON response handling
   app.post("/api/login", (req, res, next) => {
-    if (!req.body.username || !req.body.password) {
-      return res.status(400).json({
-        message: "Username and password are required",
-        error: "MISSING_CREDENTIALS"
-      });
-    }
-
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: any) => {
       if (err) {
         console.error("Login error:", err);
@@ -124,25 +118,12 @@ export function setupAuth(app: Express) {
             error: loginErr.message
           });
         }
-        try {
-          res.json({
-            id: user.id,
-            username: user.username,
-            roles: user.roles,
-            adminType: user.adminType,
-            adminStatus: user.adminStatus
-          });
-        } catch (jsonErr) {
-          console.error("JSON serialization error:", jsonErr);
-          res.status(500).json({
-            message: "Failed to serialize user data",
-            error: "SERIALIZATION_ERROR"
-          });
-        }
+        res.json(user);
       });
     })(req, res, next);
   });
 
+  // Add back the register route
   app.post("/api/register", async (req, res) => {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);
@@ -177,6 +158,7 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Add back the logout route
   app.post("/api/logout", (req, res) => {
     if (req.user) {
       req.logout((err) => {
