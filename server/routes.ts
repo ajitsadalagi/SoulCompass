@@ -823,7 +823,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add endpoint to get nearby admins
+  // Update the nearby admins endpoint to properly handle parameters
   app.get("/api/admins/nearby", requireAuth, async (req, res) => {
     try {
       const { lat, lng, radius } = req.query;
@@ -853,6 +853,30 @@ export function registerRoutes(app: Express): Server {
       console.error("Error fetching nearby admins:", error);
       res.status(500).json({
         message: "Failed to fetch nearby admins",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Add admin search endpoint
+  app.get("/api/admins/search", requireAuth, async (req, res) => {
+    try {
+      const { query } = req.query;
+
+      if (!query) {
+        return res.status(400).json({
+          message: "Missing search query",
+          error: "Search query is required"
+        });
+      }
+
+      const searchResults = await storage.searchAdmins(query as string);
+      res.json(searchResults);
+
+    } catch (error) {
+      console.error("Error searching admins:", error);
+      res.status(500).json({
+        message: "Failed to search admins",
         error: error instanceof Error ? error.message : String(error)
       });
     }
