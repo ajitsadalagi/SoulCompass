@@ -47,14 +47,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const getCartKey = () => {
-    if (user?.id && user?.username) {
-      return `cart_${user.id}_${user.username}`;
+    if (user?.id) {
+      return `cart_${user.id}`;
     }
-    return 'guest_cart';
+    return null; // Return null for unauthenticated users
   };
 
+  // Load cart data when user changes
   useEffect(() => {
     const cartKey = getCartKey();
+    if (!cartKey) {
+      setItems([]); // Clear cart for unauthenticated users
+      return;
+    }
+
     try {
       const savedCart = localStorage.getItem(cartKey);
       if (savedCart) {
@@ -63,7 +69,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setItems(parsedCart);
         } else {
           localStorage.removeItem(cartKey);
+          setItems([]);
         }
+      } else {
+        setItems([]); // Initialize empty cart for new users
       }
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -72,11 +81,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         description: "Failed to load your cart data",
         variant: "destructive",
       });
+      setItems([]); // Reset to empty cart on error
     }
-  }, [user?.id, user?.username, toast]);
+  }, [user?.id, toast]);
 
+  // Save cart data when items change
   useEffect(() => {
     const cartKey = getCartKey();
+    if (!cartKey) return; // Don't save cart for unauthenticated users
+
     try {
       if (items.length === 0) {
         localStorage.removeItem(cartKey);
@@ -91,9 +104,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         variant: "destructive",
       });
     }
-  }, [items, user?.id, user?.username, toast]);
+  }, [items, user?.id, toast]);
 
   const addItem = (newItem: CartItem) => {
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add items to your cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setItems(currentItems => {
       const existingItem = currentItems.find(item => item.id === newItem.id);
       if (existingItem) {
@@ -144,7 +166,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = () => {
     setItems([]);
     const cartKey = getCartKey();
-    localStorage.removeItem(cartKey);
+    if (cartKey) {
+      localStorage.removeItem(cartKey);
+    }
     toast({
       title: "Cart Cleared",
       description: "All items have been removed from your cart",
@@ -152,6 +176,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product) => {
+    if (!user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add items to your cart",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const cartItem: CartItem = {
       id: product.id,
       name: product.name || '',
