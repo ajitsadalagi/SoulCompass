@@ -3,8 +3,18 @@ import { Button } from "./button";
 import { Card } from "./card";
 import { FiNavigation } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Libraries } from "@react-google-maps/api";
+import { Alert, AlertDescription } from "./alert";
+
+// Declare the ImportMeta interface augmentation
+declare interface ImportMetaEnv {
+  readonly VITE_GOOGLE_MAPS_API_KEY: string
+}
+
+declare interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
 
 interface LocationPickerProps {
   defaultLocation?: {
@@ -30,9 +40,18 @@ export function LocationPicker({
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [mapsLoadError, setMapsLoadError] = useState<string | null>(null);
   const { toast } = useToast();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const libraries: Libraries = ["places"];
+
+  // Validate API key before proceeding
+  useEffect(() => {
+    if (!apiKey) {
+      setMapsLoadError("Google Maps API key is missing. Please check your environment configuration.");
+      setIsLoading(false);
+    }
+  }, [apiKey]);
 
   const initializeMap = async () => {
     if (!mapRef.current || !window.google?.maps) {
@@ -41,9 +60,8 @@ export function LocationPicker({
     }
 
     try {
-      // Default to a central location if no default is provided
       const initialLocation = defaultLocation || {
-        latitude: 20.5937,  // Center of India
+        latitude: 20.5937,
         longitude: 78.9629
       };
 
@@ -69,7 +87,6 @@ export function LocationPicker({
         animation: google.maps.Animation.DROP,
       });
 
-      // Add click listener to map
       mapInstance.addListener("click", async (event: google.maps.MapMouseEvent) => {
         if (!event.latLng) return;
 
@@ -97,7 +114,6 @@ export function LocationPicker({
         }
       });
 
-      // Add marker drag end listener
       markerInstance.addListener("dragend", async () => {
         const position = markerInstance.getPosition();
         if (!position) return;
@@ -131,14 +147,13 @@ export function LocationPicker({
         onMapLoad(mapInstance);
       }
 
-      // Get initial address if we have coordinates
       if (initialLocation) {
         try {
           const geocoder = new google.maps.Geocoder();
           const result = await geocoder.geocode({
-            location: { 
-              lat: initialLocation.latitude, 
-              lng: initialLocation.longitude 
+            location: {
+              lat: initialLocation.latitude,
+              lng: initialLocation.longitude
             }
           });
           if (result.results[0]) {
@@ -215,7 +230,7 @@ export function LocationPicker({
   };
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !apiKey) return;
 
     const loadGoogleMaps = () => {
       const script = document.createElement('script');
@@ -229,17 +244,12 @@ export function LocationPicker({
 
       script.onerror = () => {
         setIsLoading(false);
-        toast({
-          title: "Error",
-          description: "Failed to load Google Maps. Please check your internet connection and try again.",
-          variant: "destructive",
-        });
+        setMapsLoadError("Failed to load Google Maps. Please check your internet connection and try again.");
       };
 
       document.head.appendChild(script);
     };
 
-    // Check if the script is already loaded
     if (window.google?.maps) {
       initializeMap();
     } else {
@@ -255,6 +265,17 @@ export function LocationPicker({
       }
     };
   }, [defaultLocation]);
+
+  if (mapsLoadError) {
+    return (
+      <Card className="p-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{mapsLoadError}</AlertDescription>
+        </Alert>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
