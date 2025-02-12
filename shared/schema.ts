@@ -109,6 +109,14 @@ export const buyerRequestAdmins = pgTable(TABLE_NAMES.BUYER_REQUEST_ADMINS, {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Add new junction table for user-admin associations
+export const userAdminTags = pgTable("user_admin_tags", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  adminId: integer("admin_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users, {
   roles: z.array(z.enum(["buyer", "seller", "local_admin", "super_admin", "master_admin"])).default(["buyer"]),
   adminType: z.enum(Object.values(ADMIN_ROLES) as [string, ...string[]]).default(ADMIN_ROLES.NONE),
@@ -200,7 +208,9 @@ export const insertBuyerRequestSchema = createInsertSchema(buyerRequests, {
 export const insertBuyerRequestAdminSchema = createInsertSchema(buyerRequestAdmins);
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export type User = typeof users.$inferSelect & {
+  taggedAdmins?: User[];
+};
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect & {
   admins?: User[];
@@ -216,3 +226,5 @@ export type BuyerRequest = typeof buyerRequests.$inferSelect & {
 };
 export type BuyerRequestAdmin = typeof buyerRequestAdmins.$inferSelect;
 export type InsertBuyerRequestAdmin = z.infer<typeof insertBuyerRequestAdminSchema>;
+export type UserAdminTag = typeof userAdminTags.$inferSelect;
+export type InsertUserAdminTag = typeof userAdminTags.$inferInsert;

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { InsertUser, User, Product } from "@shared/schema";
 import { queryClient } from "../lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -136,6 +136,38 @@ export default function ProfilePage() {
     onError: (error: Error) => {
       toast({
         title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const tagAdminMutation = useMutation({
+    mutationFn: async ({ adminId, action }: { adminId: number; action: 'tag' | 'untag' }) => {
+      const res = await fetch(`/api/user/tag-admin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminId, action }),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: `Failed to ${action} admin` }));
+        throw new Error(errorData.message || `Failed to ${action} admin`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["/api/user"]);
+      toast({
+        title: "Success",
+        description: "Admin preferences updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -883,6 +915,178 @@ export default function ProfilePage() {
     },
   });
 
+  const renderTaggedAdmins = () => {
+    const [showTagDialog, setShowTagDialog] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedLocation, setSelectedLocation] = useState<{
+      latitude?: number;
+      longitude?: number;
+      address?: string;
+    }>({
+      latitude: user?.latitude || undefined,
+      longitude: user?.longitude || undefined,
+      address: user?.location || undefined,
+    });
+    const [searchRadius, setSearchRadius] = useState(50);
+    const [isLocationSearchActive, setIsLocationSearchActive] = useState(false);
+    const mapRef = useRef<google.maps.Map>();
+
+    const { data: nearbyAdmins, isLoading: isLoadingAdmins }= useQuery<User[]>({
+      queryKey: ["/api/admins/nearby", selectedLocation, searchRadius],
+      queryFn: async () => {
+        if (!selectedLocation.latitude || !selectedLocation.longitude) return [];
+        const res = await fetch(`/api/admins/nearby?lat=${selectedLocation.latitude}&lng=${selectedLocation.longitude}&radius=${searchRadius}`);
+        if (!res.ok) throw new Error("Failed to fetch nearby admins");
+        return res.json();
+      },
+      enabled: isLocationSearchActive && !!selectedLocation.latitude && !!selectedLocation.longitude,
+    });
+
+    // Filter admins based on search query and location
+    const filteredAdmins = nearbyAdmins?.filter(admin => {
+      const searchLower = searchQuery.toLowerCase();
+      const usernameLower = admin.username.toLowerCase();
+      const locationLower = (admin.location || "").toLowerCase();
+      return usernameLower.includes(searchLower) || locationLower.includes(searchLower);
+    });
+
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Tagged Admins
+            </CardTitle>
+            <Button onClick={() => setShowTagDialog(true)}>
+              Find & Tag Admins
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {user.taggedAdmins?.length ? (
+              user.taggedAdmins.map((admin) => (
+                <div key={admin.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div className="font-medium">{admin.username}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {admin.adminType === 'local_admin' ? 'Local Admin' : 'Super Admin'}
+                    </div>
+                    {admin.location && (
+                      <div className="text-sm text-muted-foreground">{admin.location}</div>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => tagAdminMutation.mutate({ adminId: admin.id, action: 'untag' })}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Untag Admin
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No tagged admins</p>
+            )}
+          </div>
+
+          <Dialog open={showTagDialog} onOpenChange={setShowTagDialog}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Find & Tag Admins</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div>
+                  <div className="text-sm font-medium mb-2">Search by Name or Location</div>
+                  <Input
+                    placeholder="Search admins..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium mb-2">Search by Area</div>
+                  <div className="space-y-4">
+                    <LocationPicker
+                      defaultLocation={selectedLocation}
+                      onLocationSelect={(location) => {
+                        setSelectedLocation({
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                          address: location.address,
+                        });
+                        setIsLocationSearchActive(true);
+                      }}
+                      onMapLoad={(map) => {
+                        mapRef.current = map;
+                      }}
+                    />
+                    {selectedLocation.latitude && selectedLocation.longitude && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Search Radius: {searchRadius}km</div>
+                        <Slider
+                          value={[searchRadius]}
+                          onValueChange={(value) => setSearchRadius(value[0])}
+                          max={500}
+                          min={1}
+                          step={1}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {isLoadingAdmins ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAdmins?.length === 0 ? (
+                      <div className="text-center text-muted-foreground p-4">
+                        No admins found in this area
+                      </div>
+                    ) : (
+                      filteredAdmins?.map((admin) => (
+                        <div key={admin.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <div className="font-medium">{admin.username}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {admin.adminType === 'local_admin' ? 'Local Admin' : 'Super Admin'}
+                            </div>
+                            {admin.location && (
+                              <div className="text-sm text-muted-foreground">{admin.location}</div>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              tagAdminMutation.mutate({ adminId: admin.id, action: 'tag' });
+                              setShowTagDialog(false);
+                            }}
+                            disabled={user.taggedAdmins?.some((tagged) => tagged.id === admin.id)}
+                          >
+                            {user.taggedAdmins?.some((tagged) => tagged.id === admin.id)
+                              ? "Already Tagged"
+                              : "Tag Admin"}
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Add renderTaggedAdmins to the main return statement after the roles card
   return (
     <div className="container mx-auto p-8 space-y-6">
       <div className="flex justify-between items-center mb-6">
@@ -930,6 +1134,7 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      {renderTaggedAdmins()}
       <AdminRequestForm />
       {(user.adminType === "none" || user.adminStatus === "pending") && (
         <Card>

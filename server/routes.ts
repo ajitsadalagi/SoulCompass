@@ -437,7 +437,7 @@ export function registerRoutes(app: Express): Server {
       const product = await storage.createProduct({
         ...validatedData,
         sellerId: req.user.id,  // Ensure sellerId is set again
-        localAdminIds: req.body.localAdminIds || [], 
+        localAdminIds: req.body.localAdminIds || [],
       });
 
       console.log("Created product:", product);
@@ -760,6 +760,99 @@ export function registerRoutes(app: Express): Server {
       console.error("Registration error:", error);
       res.status(400).json({
         message: "Failed to register user",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Add new endpoint to tag/untag admins
+  app.post("/api/user/tag-admin", requireAuth, async (req, res) => {
+    try {
+      const { adminId, action } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({
+          message: "Authentication required",
+          error: "Must be logged in to tag admins"
+        });
+      }
+
+      if (!adminId || !['tag', 'untag'].includes(action)) {
+        return res.status(400).json({
+          message: "Invalid request",
+          error: "Must provide valid adminId and action"
+        });
+      }
+
+      // Check if the target admin exists and is actually an admin
+      const admin = await storage.getUser(adminId);
+      if (!admin || !['local_admin', 'super_admin'].includes(admin.adminType) || admin.adminStatus !== 'approved') {
+        return res.status(400).json({
+          message: "Invalid admin",
+          error: "Selected user is not an approved admin"
+        });
+      }
+
+      if (action === 'tag') {
+        await storage.tagAdmin(req.user.id, adminId);
+      } else {
+        await storage.untagAdmin(req.user.id, adminId);
+      }
+
+      // Get updated user data with tagged admins
+      const updatedUser = await storage.getUser(req.user.id);
+      if (!updatedUser) {
+        throw new Error("Failed to fetch updated user data");
+      }
+
+      // Update session
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Session update error:", err);
+          throw err;
+        }
+        res.json(updatedUser);
+      });
+
+    } catch (error) {
+      console.error("Error in tag/untag admin:", error);
+      res.status(500).json({
+        message: "Failed to update admin tags",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Add endpoint to get nearby admins
+  app.get("/api/admins/nearby", requireAuth, async (req, res) => {
+    try {
+      const { lat, lng, radius } = req.query;
+
+      if (!lat || !lng || !radius) {
+        return res.status(400).json({
+          message: "Missing parameters",
+          error: "Latitude, longitude, and radius are required"
+        });
+      }
+
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+      const radiusKm = parseFloat(radius as string);
+
+      if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusKm)) {
+        return res.status(400).json({
+          message: "Invalid parameters",
+          error: "Latitude, longitude, and radius must be valid numbers"
+        });
+      }
+
+      const nearbyAdmins = await storage.getNearbyAdmins(latitude, longitude, radiusKm);
+      res.json(nearbyAdmins);
+
+    } catch (error) {
+      console.error("Error fetching nearby admins:", error);
+      res.status(500).json({
+        message: "Failed to fetch nearby admins",
         error: error instanceof Error ? error.message : String(error)
       });
     }

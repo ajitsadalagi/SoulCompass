@@ -1,5 +1,5 @@
 import { ADMIN_ROLES, ADMIN_STATUSES, type User, type InsertUser, type Product, type ProductAdmin, type InsertProduct } from "@shared/schema";
-import { users, products, productAdmins } from "@shared/schema";
+import { users, products, productAdmins, userAdminTags } from "@shared/schema"; // Added import for userAdminTags
 import { db } from "./db";
 import { eq, and, asc, sql } from "drizzle-orm";
 import session from "express-session";
@@ -35,6 +35,11 @@ export interface IStorage {
   registerAdminRole(userId: number, adminType: string): Promise<User | undefined>;
   requestAdminApproval(userId: number, adminType: string, requestedAdminId?: number): Promise<User | undefined>;
   deleteUser(id: number): Promise<void>;
+  // Add new methods for admin tagging
+  tagAdmin(userId: number, adminId: number): Promise<void>;
+  untagAdmin(userId: number, adminId: number): Promise<void>;
+  getTaggedAdmins(userId: number): Promise<User[]>;
+  getNearbyAdmins(latitude: number, longitude: number, radiusKm: number): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -48,7 +53,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    if (!user) return undefined;
+
+    const taggedAdmins = await this.getTaggedAdmins(id);
+    return { ...user, taggedAdmins };
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -99,17 +107,17 @@ export class DatabaseStorage implements IStorage {
 
     // Update any users who were approved by this user
     await db.update(users)
-      .set({ 
+      .set({
         approvedBy: null,
         adminApprovalDate: null,
-        adminRejectionReason: null 
+        adminRejectionReason: null
       })
       .where(eq(users.approvedBy, id));
 
     // Update any users who requested approval from this user
     await db.update(users)
-      .set({ 
-        requestedAdminId: null 
+      .set({
+        requestedAdminId: null
       })
       .where(eq(users.requestedAdminId, id));
 
@@ -180,7 +188,7 @@ export class DatabaseStorage implements IStorage {
 
   async incrementProductViews(id: number): Promise<void> {
     await db.update(products)
-      .set({ 
+      .set({
         views: sql`${products.views} + 1`
       })
       .where(eq(products.id, id));
@@ -188,7 +196,7 @@ export class DatabaseStorage implements IStorage {
 
   async incrementContactRequests(id: number): Promise<void> {
     await db.update(products)
-      .set({ 
+      .set({
         contactRequests: sql`${products.contactRequests} + 1`
       })
       .where(eq(products.id, id));
@@ -295,8 +303,8 @@ export class DatabaseStorage implements IStorage {
     const adminRelations = await db.select({
       adminId: productAdmins.adminId
     })
-    .from(productAdmins)
-    .where(eq(productAdmins.productId, productId));
+      .from(productAdmins)
+      .where(eq(productAdmins.productId, productId));
 
     if (adminRelations.length === 0) return [];
 
@@ -315,8 +323,8 @@ export class DatabaseStorage implements IStorage {
     const adminProducts = await db.select({
       productId: productAdmins.productId
     })
-    .from(productAdmins)
-    .where(eq(productAdmins.adminId, adminId));
+      .from(productAdmins)
+      .where(eq(productAdmins.adminId, adminId));
 
     if (adminProducts.length === 0) return [];
 
@@ -389,6 +397,68 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+  async tagAdmin(userId: number, adminId: number): Promise<void> {
+    await db.insert(userAdminTags)
+      .values({
+        userId,
+        adminId,
+        createdAt: new Date(),
+      })
+      .onConflictDoNothing();
+  }
+
+  async untagAdmin(userId: number, adminId: number): Promise<void> {
+    await db.delete(userAdminTags)
+      .where(
+        and(
+          eq(userAdminTags.userId, userId),
+          eq(userAdminTags.adminId, adminId)
+        )
+      );
+  }
+
+  async getTaggedAdmins(userId: number): Promise<User[]> {
+    const tags = await db.select({
+      adminId: userAdminTags.adminId
+    })
+      .from(userAdminTags)
+      .where(eq(userAdminTags.userId, userId));
+
+    if (tags.length === 0) return [];
+
+    const adminIds = tags.map(tag => tag.adminId);
+
+    return db.select()
+      .from(users)
+      .where(sql`${users.id} IN (${sql.join(adminIds, sql`, `)})`);
+  }
+
+  async getNearbyAdmins(latitude: number, longitude: number, radiusKm: number): Promise<User[]> {
+    // Use Haversine formula to calculate distance
+    const haversine = `
+      6371 * acos(
+        cos(radians($1)) * 
+        cos(radians(latitude)) * 
+        cos(radians(longitude) - radians($2)) + 
+        sin(radians($1)) * 
+        sin(radians(latitude))
+      )
+    `;
+
+    const result = await db.execute(
+      sql`
+        SELECT *, ${sql.raw(haversine)} as distance
+        FROM ${users}
+        WHERE (${sql.raw(haversine)} <= $3)
+        AND admin_type IN ('local_admin', 'super_admin')
+        AND admin_status = 'approved'
+        ORDER BY distance
+      `,
+      [latitude, longitude, radiusKm]
+    );
+
+    return result.rows as User[];
   }
 }
 
