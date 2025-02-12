@@ -56,18 +56,13 @@ function getTextColorClass(listingType: 'buyer' | 'seller'): string {
 
 // Update the card style function
 function getCardStyle(product: Product): string {
-  // Check if the product's seller is an admin (any type)
-  const isAdminListing = product.admins?.some(admin => 
-    admin.adminStatus === 'approved' && admin.id === product.sellerId
-  );
+  // Check if the seller is an admin
+  const seller = product.seller;
+  const isAdminSeller = seller && seller.adminStatus === 'approved';
 
-  if (isAdminListing) {
+  if (isAdminSeller) {
     // Check for specific admin type to determine glow color
-    const isSuperAdmin = product.admins?.some(admin => 
-      admin.adminType === 'super_admin' && 
-      admin.adminStatus === 'approved' && 
-      admin.id === product.sellerId
-    );
+    const isSuperAdmin = seller.adminType === 'super_admin';
 
     // Apply violet glow for super admin listings
     if (isSuperAdmin) {
