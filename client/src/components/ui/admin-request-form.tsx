@@ -18,7 +18,7 @@ export function AdminRequestForm() {
   // Query for super admins (for local admin requests)
   const { data: superAdmins, isError: isSuperAdminsError } = useQuery<User[]>({
     queryKey: ["/api/admin/super-admins"],
-    enabled: !!user && user.adminType === "local_admin" && user.adminStatus === "registered",
+    enabled: !!user,
   });
 
   const adminRequestMutation = useMutation({
@@ -117,8 +117,8 @@ export function AdminRequestForm() {
     );
   }
 
-  // Show registration options if user hasn't registered for any admin role
-  if (user.adminType === "none") {
+  // Show registration options if user hasn't registered for any admin role or has no admin type
+  if (!user.adminType || user.adminType === "none") {
     return (
       <Card>
         <CardHeader>
@@ -271,7 +271,6 @@ export function AdminRequestForm() {
               <Button
                 onClick={() => adminRequestMutation.mutate({
                   adminType: "super_admin",
-                  requestedAdminId: 15 // masteradmin123's ID
                 })}
                 disabled={adminRequestMutation.isPending}
                 className="w-full"
