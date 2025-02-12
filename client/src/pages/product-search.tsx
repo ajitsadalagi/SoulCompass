@@ -365,22 +365,38 @@ const filterSchema = z.object({
 
 type FilterValues = z.infer<typeof filterSchema>;
 
-// Add the card style function to match home page
+// Update the card style function to properly handle admin listings
 function getCardStyle(product: Product): string {
-  // Check for admin with most privilege first
-  const admins = product.admins || [];
-  const superAdmin = admins.find(admin => admin.adminType === 'super_admin' && admin.adminStatus === 'approved');
-  const localAdmin = admins.find(admin => admin.adminType === 'local_admin' && admin.adminStatus === 'approved');
+  const isBuyerListing = product.listingType === 'buyer';
+  // Find approved admins
+  const approvedSuperAdmin = product.admins?.find(
+    admin => admin.adminType === 'super_admin' && 
+    admin.adminStatus === 'approved' &&
+    admin.id === product.sellerId
+  );
 
-  if (superAdmin && product.sellerId === superAdmin.id) {
-    return 'border-violet-500 border-2 shadow-violet-100 shadow-lg animate-border-glow-violet transition-all duration-1000';
-  }
-  if (localAdmin && product.sellerId === localAdmin.id) {
-    return 'border-purple-500 border-2 shadow-purple-100 shadow-lg animate-border-glow-purple transition-all duration-1000';
+  const approvedLocalAdmin = product.admins?.find(
+    admin => admin.adminType === 'local_admin' && 
+    admin.adminStatus === 'approved' &&
+    admin.id === product.sellerId
+  );
+
+  // Super admin gets the strongest glow
+  if (approvedSuperAdmin) {
+    return `border-2 ${
+      isBuyerListing ? 'border-red-500 animate-border-glow-red' : 'border-green-500 animate-border-glow-green'
+    } shadow-lg transform scale-102 transition-all duration-500`;
   }
 
-  // Regular user listing
-  return product.listingType === 'buyer'
+  // Local admin gets a moderate glow
+  if (approvedLocalAdmin) {
+    return `border-2 ${
+      isBuyerListing ? 'border-red-400 animate-border-glow-red-light' : 'border-green-400 animate-border-glow-green-light'
+    } shadow-md transform scale-101 transition-all duration-500`;
+  }
+
+  // Regular listing
+  return isBuyerListing
     ? 'border-red-500 border-2 shadow-red-100 shadow-lg'
     : 'border-green-500 border-2 shadow-green-100 shadow-lg';
 }
