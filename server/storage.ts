@@ -104,17 +104,17 @@ export class DatabaseStorage implements IStorage {
 
     // Update any users who were approved by this user
     await db.update(users)
-      .set({ 
+      .set({
         approvedBy: null,
         adminApprovalDate: null,
-        adminRejectionReason: null 
+        adminRejectionReason: null
       })
       .where(eq(users.approvedBy, id));
 
     // Update any users who requested approval from this user
     await db.update(users)
-      .set({ 
-        requestedAdminId: null 
+      .set({
+        requestedAdminId: null
       })
       .where(eq(users.requestedAdminId, id));
 
@@ -185,7 +185,7 @@ export class DatabaseStorage implements IStorage {
 
   async incrementProductViews(id: number): Promise<void> {
     await db.update(products)
-      .set({ 
+      .set({
         views: sql`${products.views} + 1`
       })
       .where(eq(products.id, id));
@@ -193,7 +193,7 @@ export class DatabaseStorage implements IStorage {
 
   async incrementContactRequests(id: number): Promise<void> {
     await db.update(products)
-      .set({ 
+      .set({
         contactRequests: sql`${products.contactRequests} + 1`
       })
       .where(eq(products.id, id));
@@ -314,8 +314,8 @@ export class DatabaseStorage implements IStorage {
     const adminRelations = await db.select({
       adminId: productAdmins.adminId
     })
-    .from(productAdmins)
-    .where(eq(productAdmins.productId, productId));
+      .from(productAdmins)
+      .where(eq(productAdmins.productId, productId));
 
     if (adminRelations.length === 0) return [];
 
@@ -334,8 +334,8 @@ export class DatabaseStorage implements IStorage {
     const adminProducts = await db.select({
       productId: productAdmins.productId
     })
-    .from(productAdmins)
-    .where(eq(productAdmins.adminId, adminId));
+      .from(productAdmins)
+      .where(eq(productAdmins.adminId, adminId));
 
     if (adminProducts.length === 0) return [];
 

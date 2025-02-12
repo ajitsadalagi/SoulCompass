@@ -211,13 +211,10 @@ export const cartItems = pgTable(TABLE_NAMES.CART_ITEMS, {
 });
 
 // Create insert schema for cart items
-export const insertCartItemSchema = createInsertSchema(cartItems, {
-  quantity: z.number().int().positive("Quantity must be positive"),
-}).omit({
-  createdAt: true,
-  updatedAt: true,
+export const insertCartItemSchema = z.object({
+  productId: z.number().int().positive("Product ID must be positive"),
+  quantity: z.number().int().positive("Quantity must be positive").default(1),
 });
-
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
