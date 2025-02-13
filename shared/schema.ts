@@ -9,7 +9,8 @@ export const TABLE_NAMES = {
   PRODUCT_ADMINS: "product_admins",
   BUYER_REQUESTS: "buyer_requests",
   BUYER_REQUEST_ADMINS: "buyer_request_admins",
-  CART_ITEMS: "cart_items"
+  CART_ITEMS: "cart_items",
+  CART_SHARES: "cart_shares"
 } as const;
 
 // Define admin roles as const for type safety
@@ -216,6 +217,21 @@ export const insertCartItemSchema = z.object({
   quantity: z.number().int().positive("Quantity must be positive").default(1),
 });
 
+// Cart shares table to track shared carts between users
+export const cartShares = pgTable(TABLE_NAMES.CART_SHARES, {
+  id: serial("id").primaryKey(),
+  ownerUserId: integer("owner_user_id").notNull().references(() => users.id),
+  sharedWithUserId: integer("shared_with_user_id").notNull().references(() => users.id),
+  status: text("status", { enum: ["pending", "accepted", "rejected"] }).notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Create insert schema for cart shares
+export const insertCartShareSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -235,3 +251,7 @@ export type BuyerRequestAdmin = typeof buyerRequestAdmins.$inferSelect;
 export type InsertBuyerRequestAdmin = z.infer<typeof insertBuyerRequestAdminSchema>;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
 export type CartItem = typeof cartItems.$inferSelect;
+
+// Export new types
+export type InsertCartShare = z.infer<typeof insertCartShareSchema>;
+export type CartShare = typeof cartShares.$inferSelect;

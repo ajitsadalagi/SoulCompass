@@ -5,24 +5,27 @@ import { insertProductSchema, insertUserSchema, updateProfileSchema } from "@sha
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertCartItemSchema } from "@shared/schema";
+import { insertCartShareSchema } from "@shared/schema";
 
-enum ADMIN_ROLES {
-  LOCAL_ADMIN = "local_admin",
-  SUPER_ADMIN = "super_admin",
-  MASTER_ADMIN = "master_admin"
-}
-
-enum ADMIN_STATUSES {
-  APPROVED = "approved",
-  PENDING = "pending",
-  REJECTED = "rejected",
-  REGISTERED = "registered"
-}
-
+// Place setupAuth first before any other route registration
 export function registerRoutes(app: Express): Server {
+  // Setup authentication first
   const { requireAuth } = setupAuth(app);
 
-  // Update the admin details route handler
+  // Then register all API routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({
+        message: "Failed to fetch products",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   app.get("/api/users/admin/:id", requireAuth, async (req, res) => {
     try {
       const adminId = Number(req.params.id);
@@ -80,7 +83,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add new route to fetch all admins (for master admin)
   app.get("/api/users/admins", requireAuth, async (req, res) => {
     try {
       if (req.user?.adminType !== "master_admin") {
@@ -102,7 +104,6 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Add new route to fetch local admins
   app.get("/api/users/local-admins", requireAuth, async (req, res) => {
     try {
       // Allow access for sellers to list products
@@ -140,7 +141,6 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-  // Add new route to get admin stats and overview
   app.get("/api/admin/overview", requireAuth, async (req, res) => {
     try {
       if (!req.user?.roles.includes('master_admin')) {
@@ -173,7 +173,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add new route to fetch super admins
   app.get("/api/admin/super-admins", requireAuth, async (req, res) => {
     try {
       // Allow both local admins and master admins to view super admins
@@ -206,7 +205,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Admin requests route
   app.get("/api/admin/requests", requireAuth, async (req, res) => {
     console.log("Admin requests being fetched by:", req.user?.id, req.user?.adminType, req.user?.adminStatus);
 
@@ -243,7 +241,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Process admin request approval/rejection
   app.post("/api/admin/request", requireAuth, async (req, res) => {
     try {
       const { adminType, requestedAdminId } = req.body;
@@ -310,7 +307,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Process admin request approval/rejection
   app.post("/api/admin/requests/:userId/:action", requireAuth, async (req, res) => {
     const { userId, action } = req.params;
     const { reason } = req.body;
@@ -366,7 +362,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Product routes
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
@@ -680,7 +675,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add new PATCH endpoint for updating user profile
   app.patch("/api/user", requireAuth, async (req, res) => {
     try {
       console.log("Update profile request:", req.body);
@@ -727,7 +721,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get products by seller ID
   app.get("/api/products/seller/:id", requireAuth, async (req, res) => {
     try {
       const sellerId = Number(req.params.id);
@@ -739,7 +732,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update register route to handle master admin creation
   app.post("/api/register", async (req, res, next) => {
     try {
       console.log("Registration attempt for:", req.body.username);
@@ -789,7 +781,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Cart routes
   app.get("/api/cart", requireAuth, async (req, res) => {
     try {
       const cartItems = await storage.getCartItems(req.user!.id);
@@ -890,6 +881,118 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/cart/share", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCartShareSchema.parse(req.body);
+
+      // Create share
+      const share = await storage.shareCart(req.user!.id, validatedData);
+      res.status(201).json(share);
+    } catch (error) {
+      console.error("Error sharing cart:", error);
+      res.status(400).json({
+        message: "Failed to share cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/cart/shared", requireAuth, async (req, res) => {
+    try {
+      const sharedCarts = await storage.getSharedCarts(req.user!.id);
+      res.json(sharedCarts);
+    } catch (error) {
+      console.error("Error fetching shared carts:", error);
+      res.status(500).json({
+        message: "Failed to fetch shared carts",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/cart/shares/pending", requireAuth, async (req, res) => {
+    try {
+      const pendingShares = await storage.getPendingCartShares(req.user!.id);
+      res.json(pendingShares);
+    } catch (error) {
+      console.error("Error fetching pending cart shares:", error);
+      res.status(500).json({
+        message: "Failed to fetch pending cart shares",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/cart/shares/:shareId/:action", requireAuth, async (req, res) => {
+    try {
+      const { shareId, action } = req.params;
+
+      if (!["accept", "reject"].includes(action)) {
+        return res.status(400).json({
+          message: "Invalid action",
+          error: "INVALID_ACTION"
+        });
+      }
+
+      const status = action === "accept" ? "accepted" : "rejected";
+      const share = await storage.updateCartShareStatus(
+        Number(shareId),
+        req.user!.id,
+        status
+      );
+
+      res.json(share);
+    } catch (error) {
+      console.error("Error updating cart share:", error);
+      res.status(500).json({
+        message: "Failed to update cart share",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/cart/shared/:shareId", requireAuth, async (req, res) => {
+    try {
+      const shareId = Number(req.params.shareId);
+
+      if (isNaN(shareId)) {
+        return res.status(400).json({
+          message: "Invalid share ID",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      // Delete the share for the current user
+      const deleted = await storage.deleteCartShare(shareId, req.user!.id);
+
+      if (!deleted) {
+        return res.status(404).json({
+          message: "Shared cart not found or you don't have permission to delete it",
+          error: "SHARE_NOT_FOUND"
+        });
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error deleting shared cart:", error);
+      res.status(500).json({
+        message: "Failed to delete shared cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+
+  // Add API error handling middleware
+  app.use('/api', (err: Error, req: any, res: any, next: any) => {
+    console.error('API error handler:', err);
+    res.status(500).json({
+      message: "An error occurred",
+      error: err instanceof Error ? err.message : String(err)
+    });
+  });
+
+  // Create and return the HTTP server
   const httpServer = createServer(app);
   return httpServer;
 }

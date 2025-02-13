@@ -11,6 +11,8 @@ export type RootStackParamList = {
 export type RootStackScreenProps<T extends keyof RootStackParamList> = 
   NativeStackScreenProps<RootStackParamList, T>;
 
-export type NavigationProps = {
-  navigation: RootStackScreenProps<keyof RootStackParamList>['navigation'];
-};
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
+}

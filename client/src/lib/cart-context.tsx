@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-interface CartItem {
+export interface CartItem {
   id: number;
   name: string;
   price: number;
@@ -20,8 +20,26 @@ interface CartItem {
   image?: string;
 }
 
+interface SharedCart {
+  id: number;  // Add the id field
+  owner: {
+    id: number;
+    username: string;
+    mobileNumber?: string;
+  };
+  items: CartItem[];
+}
+
 interface CartContextType {
   items: CartItem[];
+  sharedCarts: SharedCart[];
+  pendingShares: {
+    id: number;
+    owner: {
+      id: number;
+      username: string;
+    };
+  }[];
   addItem: (item: CartItem) => void;
   removeItem: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
@@ -29,7 +47,11 @@ interface CartContextType {
   totalItems: number;
   totalPrice: number;
   addToCart: (product: Product) => void;
+  shareCart: (username: string) => void;
+  respondToShare: (shareId: number, action: 'accept' | 'reject') => void;
+  deleteSharedCart: (shareId: number) => void;
   isLoading: boolean;
+  error: Error | null;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -38,33 +60,149 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [error, setError] = useState<Error | null>(null);
 
-  // Fetch cart items from the database
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading: itemsLoading, error: itemsError } = useQuery({
     queryKey: ['cart', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const response = await apiRequest('GET', '/api/cart');
-      const data = await response.json();
-      return data.map((item: any) => ({
-        id: item.product.id,
-        name: item.product.name,
-        price: parseFloat(item.product.targetPrice),
-        quantity: item.quantity,
-        sellerId: item.product.sellerId,
-        quality: item.product.quality,
-        category: item.product.category,
-        city: item.product.city,
-        state: item.product.state,
-        latitude: item.product.latitude,
-        longitude: item.product.longitude,
-        image: item.product.image,
-      }));
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart');
+        const data = await response.json();
+        return data.map((item: any) => ({
+          id: item.product.id,
+          name: item.product.name || '',
+          price: typeof item.product.targetPrice === 'string' ? parseFloat(item.product.targetPrice) : (item.product.targetPrice || 0),
+          quantity: item.quantity || 1,
+          sellerId: item.product.sellerId,
+          quality: item.product.quality || '',
+          category: item.product.category || '',
+          city: item.product.city || '',
+          state: item.product.state || '',
+          latitude: item.product.latitude,
+          longitude: item.product.longitude,
+          image: item.product.image,
+        }));
+      } catch (error) {
+        console.error('Error fetching cart items:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch cart items'));
+        return [];
+      }
     },
     enabled: !!user?.id,
+    retry: 3,
   });
 
-  // Add item mutation
+  const { data: sharedCarts = [], error: sharedCartsError } = useQuery<SharedCart[]>({
+    queryKey: ['shared-carts', user?.id],
+    queryFn: async () => {
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart/shared');
+        const data = await response.json();
+        return data.map((cart: any) => ({
+          id: cart.id, // Ensure we're mapping the cart ID
+          owner: {
+            id: cart.owner.id,
+            username: cart.owner.username || '',
+            mobileNumber: cart.owner.mobileNumber || '',
+          },
+          items: (cart.items || []).map((item: any) => ({
+            id: item.product.id,
+            name: item.product.name || '',
+            price: typeof item.product.targetPrice === 'string' ? parseFloat(item.product.targetPrice) : (item.product.targetPrice || 0),
+            quantity: item.quantity || 1,
+            sellerId: item.product.sellerId,
+            quality: item.product.quality || '',
+            category: item.product.category || '',
+            city: item.product.city || '',
+            state: item.product.state || '',
+            latitude: item.product.latitude,
+            longitude: item.product.longitude,
+            image: item.product.image,
+          })),
+        }));
+      } catch (error) {
+        console.error('Error fetching shared carts:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch shared carts'));
+        return [];
+      }
+    },
+    enabled: !!user?.id,
+    retry: 3,
+  });
+
+  const { data: pendingShares = [], error: pendingSharesError } = useQuery({
+    queryKey: ['pending-shares', user?.id],
+    queryFn: async () => {
+      try {
+        if (!user?.id) return [];
+        const response = await apiRequest('GET', '/api/cart/shares/pending');
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching pending shares:', error);
+        setError(error instanceof Error ? error : new Error('Failed to fetch pending shares'));
+        return [];
+      }
+    },
+    enabled: !!user?.id,
+    retry: 3,
+  });
+
+  // Effect to handle errors from queries
+  useEffect(() => {
+    const currentError = itemsError || sharedCartsError || pendingSharesError;
+    if (currentError) {
+      setError(currentError instanceof Error ? currentError : new Error('An error occurred'));
+      toast({
+        title: "Error",
+        description: currentError instanceof Error ? currentError.message : "Failed to load cart data",
+        variant: "destructive",
+      });
+    }
+  }, [itemsError, sharedCartsError, pendingSharesError, toast]);
+
+  const shareCartMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const response = await apiRequest('POST', '/api/cart/share', {
+        username,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+      toast({
+        title: "Cart Shared",
+        description: "Your cart has been shared successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to share cart",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const respondToShareMutation = useMutation({
+    mutationFn: async ({ shareId, action }: { shareId: number; action: 'accept' | 'reject' }) => {
+      const response = await apiRequest('POST', `/api/cart/shares/${shareId}/${action}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-shares', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to respond to share request",
+        variant: "destructive",
+      });
+    },
+  });
+
   const addItemMutation = useMutation({
     mutationFn: async (item: CartItem) => {
       const response = await apiRequest('POST', '/api/cart', {
@@ -85,7 +223,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Remove item mutation
   const removeItemMutation = useMutation({
     mutationFn: async (productId: number) => {
       await apiRequest('DELETE', `/api/cart/${productId}`);
@@ -102,7 +239,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Update quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ productId, quantity }: { productId: number; quantity: number }) => {
       const response = await apiRequest('PATCH', `/api/cart/${productId}`, { quantity });
@@ -120,7 +256,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  // Clear cart mutation
   const clearCartMutation = useMutation({
     mutationFn: async () => {
       await apiRequest('DELETE', '/api/cart');
@@ -188,6 +323,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     clearCartMutation.mutate();
   };
 
+  const shareCart = (username: string) => {
+    shareCartMutation.mutate(username);
+  };
+
+  const respondToShare = (shareId: number, action: 'accept' | 'reject') => {
+    respondToShareMutation.mutate({ shareId, action });
+  };
+
   const addToCart = (product: Product) => {
     if (!user?.id) {
       toast({
@@ -216,11 +359,61 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addItem(cartItem);
   };
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const deleteSharedCartMutation = useMutation({
+    mutationFn: async (shareId: number) => {
+      if (!shareId) {
+        throw new Error('No share ID provided');
+      }
+
+      try {
+        const response = await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to delete shared cart');
+        }
+        return response;
+      } catch (error) {
+        console.error('Error in deleteSharedCartMutation:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+      toast({
+        title: "Success",
+        description: "Shared cart has been removed",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting shared cart:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete shared cart",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteSharedCart = (shareId: number) => {
+    console.log('Attempting to delete shared cart with ID:', shareId);
+    if (!shareId) {
+      toast({
+        title: "Error",
+        description: "No share ID provided",
+        variant: "destructive",
+      });
+      return;
+    }
+    deleteSharedCartMutation.mutate(shareId);
+  };
+
+  const totalItems = items.reduce((sum: number, item) => sum + item.quantity, 0);
+  const totalPrice = items.reduce((sum: number, item) => sum + (item.price * item.quantity), 0);
 
   const value = {
     items,
+    sharedCarts,
+    pendingShares,
     addItem,
     removeItem,
     updateQuantity,
@@ -228,8 +421,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     totalItems,
     totalPrice,
     addToCart,
-    isLoading,
+    shareCart,
+    respondToShare,
+    deleteSharedCart,
+    isLoading: itemsLoading,
+    error,
   };
+
+  if (error) {
+    console.error('CartContext error:', error);
+  }
 
   return (
     <CartContext.Provider value={value}>

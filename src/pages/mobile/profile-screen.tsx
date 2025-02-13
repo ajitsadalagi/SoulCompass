@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
-import type { RootStackParamList } from '../../App.native';
+import { RootStackScreenProps } from '../../types/navigation';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
+type Props = RootStackScreenProps<'Profile'>;
 
 export default function ProfileScreen({ navigation }: Props) {
   const [user, setUser] = useState<any>(null);

@@ -11,15 +11,7 @@ import ProductListingScreen from './src/pages/mobile/product-listing-screen';
 import ProductSearchScreen from './src/pages/mobile/product-search-screen';
 import ProfileScreen from './src/pages/mobile/profile-screen';
 import AuthScreen from './src/pages/mobile/auth-screen';
-
-// Define the root stack parameter list
-export type RootStackParamList = {
-  Auth: undefined;
-  Home: undefined;
-  ProductListing: { product?: any };
-  ProductSearch: undefined;
-  Profile: undefined;
-};
+import { RootStackParamList } from './src/types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

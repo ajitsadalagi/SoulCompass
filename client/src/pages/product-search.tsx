@@ -432,16 +432,15 @@ const ProductSearch = () => {
       }
 
       try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-
-        if (permission.state === 'denied') {
-          throw new Error('Location permission denied. Please enable location services in your browser settings.');
-        }
-
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
             resolve,
-            reject,
+            (error) => {
+              console.log("Geolocation error:", error);
+              // Don't reject, just use default location
+              const defaultLocation = { coords: { latitude: 37.7749, longitude: -122.4194 } };
+              resolve(defaultLocation as GeolocationPosition);
+            },
             {
               enableHighAccuracy: true,
               timeout: 5000,
@@ -462,21 +461,18 @@ const ProductSearch = () => {
         });
         setIsLocationSearchActive(true);
         setLocationError(null);
+        setIsLoadingLocation(false);
       } catch (error) {
         console.error("Error getting location:", error);
-        setLocationError(
-          error instanceof Error
-            ? error.message
-            : "Unable to get your location. Please check your browser settings."
-        );
-        const defaultLocation = { lat: 37.7749, lng: -122.4194 }; // San Francisco
+        // Use default location (San Francisco) as fallback
+        const defaultLocation = { lat: 37.7749, lng: -122.4194 };
         setCurrentLocation(defaultLocation);
         setSearchCircle({
           center: defaultLocation,
           radius: 3218.69,
         });
         setIsLocationSearchActive(true);
-      } finally {
+        setLocationError("Unable to get your location. Using default location (San Francisco).");
         setIsLoadingLocation(false);
       }
     };
