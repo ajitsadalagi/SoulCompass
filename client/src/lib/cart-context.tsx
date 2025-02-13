@@ -360,7 +360,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSharedCartMutation = useMutation({
     mutationFn: async (shareId: number) => {
-      await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
+      if (!shareId || typeof shareId !== 'number') {
+        throw new Error('Invalid share ID provided');
+      }
+      const response = await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
+      if (!response.ok) {
+        throw new Error('Failed to delete shared cart');
+      }
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
@@ -370,6 +377,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       });
     },
     onError: (error) => {
+      console.error('Error deleting shared cart:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete shared cart",
@@ -379,16 +387,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
 
   const deleteSharedCart = (shareId: number) => {
-    if (!shareId) {
-      console.error('Invalid share ID:', shareId);
+    if (!shareId || typeof shareId !== 'number') {
       toast({
         title: "Error",
-        description: "Invalid share ID",
+        description: "Invalid share ID provided",
         variant: "destructive",
       });
       return;
     }
-    console.log('Deleting shared cart:', shareId);
     deleteSharedCartMutation.mutate(shareId);
   };
 
