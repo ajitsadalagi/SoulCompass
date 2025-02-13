@@ -61,10 +61,10 @@ export function setupAuth(app: Express) {
         console.log("Attempting login for user:", username);
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
-          console.log("Login failed for user:", username);
+          console.log("Login failed - invalid credentials for user:", username);
           return done(null, false, { message: "Invalid username or password" });
         }
-        console.log("Login successful for user:", username, "with roles:", user.roles);
+        console.log("Login successful for user:", username);
         return done(null, user);
       } catch (error) {
         console.error("Login error:", error);
@@ -74,7 +74,7 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
-    console.log("Serializing user:", user.id, "with roles:", user.roles);
+    console.log("Serializing user:", user.id);
     done(null, user.id);
   });
 
@@ -86,7 +86,6 @@ export function setupAuth(app: Express) {
         console.log("User not found during deserialization:", id);
         return done(null, false);
       }
-      console.log("User deserialized:", user.id, "with roles:", user.roles);
       done(null, user);
     } catch (error) {
       console.error("Deserialization error:", error);
@@ -94,22 +93,28 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Add back the login route with proper JSON response handling
+  // Login route with proper error handling and JSON responses
   app.post("/api/login", (req, res, next) => {
+    // Ensure we're expecting JSON
+    res.setHeader('Content-Type', 'application/json');
+
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: any) => {
       if (err) {
-        console.error("Login error:", err);
+        console.error("Authentication error:", err);
         return res.status(500).json({
           message: "Internal server error",
           error: err.message
         });
       }
+
       if (!user) {
+        console.log("Login failed - no user returned");
         return res.status(401).json({
           message: info?.message || "Invalid username or password",
           error: "INVALID_CREDENTIALS"
         });
       }
+
       req.login(user, (loginErr) => {
         if (loginErr) {
           console.error("Session creation error:", loginErr);
@@ -118,48 +123,27 @@ export function setupAuth(app: Express) {
             error: loginErr.message
           });
         }
+        console.log("Login successful, sending user data");
         res.json(user);
       });
     })(req, res, next);
   });
 
-  // Add back the register route
-  app.post("/api/register", async (req, res) => {
-    try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).json({
-          message: "Username already exists",
-          error: "USERNAME_EXISTS"
-        });
-      }
-
-      const hashedPassword = await hashPassword(req.body.password);
-      const user = await storage.createUser({
-        ...req.body,
-        password: hashedPassword
-      });
-
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({
-            message: "Failed to create session",
-            error: err.message
-          });
-        }
-        res.status(201).json(user);
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(400).json({
-        message: "Failed to register user",
-        error: error instanceof Error ? error.message : String(error)
+  // User route
+  app.get("/api/user", (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({
+        message: "Not authenticated",
+        error: "AUTH_REQUIRED"
       });
     }
+    res.json(req.user);
   });
 
-  // Add back the logout route
+  // Logout route
   app.post("/api/logout", (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
     if (req.user) {
       req.logout((err) => {
         if (err) {
@@ -168,14 +152,15 @@ export function setupAuth(app: Express) {
             error: err.message
           });
         }
-        res.clearCookie('sessionId').sendStatus(200);
+        res.clearCookie('sessionId').json({ message: "Logged out successfully" });
       });
     } else {
-      res.sendStatus(200);
+      res.json({ message: "Already logged out" });
     }
   });
 
   const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Content-Type', 'application/json');
     console.log("Auth check:", {
       isAuthenticated: req.isAuthenticated(),
       session: req.session?.id,
