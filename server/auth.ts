@@ -32,15 +32,15 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || 'fallback-secret-key',
-    resave: true, 
-    saveUninitialized: true, 
+    resave: true,
+    saveUninitialized: true,
     store: new MemoryStore({
-      checkPeriod: 86400000 
+      checkPeriod: 86400000
     }),
     cookie: {
       secure: app.get("env") === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, 
+      maxAge: 24 * 60 * 60 * 1000,
       sameSite: 'lax',
       path: '/',
     },
