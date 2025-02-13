@@ -203,7 +203,7 @@ const CartItems: React.FC<CartItemProps> = ({
 };
 
 export default function CartPage() {
-  const { items, sharedCarts, pendingShares, removeItem, updateQuantity, clearCart, totalPrice, shareCart, respondToShare } = useCart();
+  const { items, sharedCarts, pendingShares, removeItem, updateQuantity, clearCart, totalPrice, shareCart, respondToShare, deleteSharedCart } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
@@ -440,6 +440,14 @@ export default function CartPage() {
           <TabsContent key={cart.owner.id} value={`shared-${index}`} className="space-y-8">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold">{cart.owner.username}'s Cart</h1>
+              <Button
+                variant="destructive"
+                onClick={() => deleteSharedCart(cart.id)}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove Shared Cart
+              </Button>
             </div>
             <CartItems
               items={cart.items}

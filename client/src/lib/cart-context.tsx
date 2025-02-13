@@ -358,9 +358,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addItem(cartItem);
   };
 
-  const totalItems = items.reduce((sum: number, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum: number, item) => sum + (item.price * item.quantity), 0);
-
   const deleteSharedCartMutation = useMutation({
     mutationFn: async (shareId: number) => {
       await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
@@ -382,8 +379,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
 
   const deleteSharedCart = (shareId: number) => {
+    if (!shareId) {
+      console.error('Invalid share ID:', shareId);
+      toast({
+        title: "Error",
+        description: "Invalid share ID",
+        variant: "destructive",
+      });
+      return;
+    }
+    console.log('Deleting shared cart:', shareId);
     deleteSharedCartMutation.mutate(shareId);
   };
+
+  const totalItems = items.reduce((sum: number, item) => sum + item.quantity, 0);
+  const totalPrice = items.reduce((sum: number, item) => sum + (item.price * item.quantity), 0);
 
   const value = {
     items,
