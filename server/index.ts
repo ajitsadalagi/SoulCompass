@@ -5,6 +5,16 @@ import os from 'os';
 
 const app = express();
 
+// Parse JSON payloads first
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Add API-specific middleware
+app.use('/api', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+});
+
 // Add CORS middleware for Expo Go
 app.use((req, res, next) => {
   const allowedOrigins = [
@@ -18,9 +28,9 @@ app.use((req, res, next) => {
 
   const origin = req.headers.origin;
   if (origin) {
-    const isAllowed = allowedOrigins.some(allowed => 
-      typeof allowed === 'string' 
-        ? allowed === origin 
+    const isAllowed = allowedOrigins.some(allowed =>
+      typeof allowed === 'string'
+        ? allowed === origin
         : allowed.test(origin)
     );
 
@@ -39,10 +49,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Request logging middleware with detailed API logging
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -61,11 +68,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
       log(logLine);
     }
   });
@@ -73,22 +75,13 @@ app.use((req, res, next) => {
   next();
 });
 
-function getNetworkAddresses(): string[] {
-  const interfaces = os.networkInterfaces();
-  const addresses: string[] = [];
-
-  for (const [, nets] of Object.entries(interfaces)) {
-    if (!nets) continue;
-
-    for (const net of nets) {
-      if (net.family === 'IPv4' && !net.internal) {
-        addresses.push(net.address);
-      }
-    }
-  }
-
-  return addresses;
-}
+// API error handling middleware - add before routes
+app.use('/api', (err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('API error:', err);
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message, error: String(err) });
+});
 
 let activeServer: ReturnType<typeof registerRoutes> | null = null;
 
@@ -104,20 +97,25 @@ async function closeServer(): Promise<void> {
   return Promise.resolve();
 }
 
-// Try to start the server with graceful error handling
 async function startServer(port: number, maxRetries: number = 10): Promise<void> {
   try {
-    // Close any existing server first
     await closeServer();
 
-    // Create new server instance
+    // Create new server instance first
     const server = registerRoutes(app);
+
+    if (app.get("env") === "development") {
+      // Setup Vite with the server instance
+      await setupVite(app, server);
+    } else {
+      // Serve static files in production
+      serveStatic(app);
+    }
 
     await new Promise<void>((resolve, reject) => {
       server.listen(port, "0.0.0.0", () => {
         activeServer = server;
         const addresses = getNetworkAddresses();
-
         log(`Server started successfully on port ${port}`);
         log(`Server is accessible at: http://localhost:${port}`);
         log('Available network addresses for Expo Go:');
@@ -149,37 +147,24 @@ async function startServer(port: number, maxRetries: number = 10): Promise<void>
   }
 }
 
-(async () => {
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    log(`Error: ${message}`);
-  });
+// Helper function for network addresses
+function getNetworkAddresses(): string[] {
+  const interfaces = os.networkInterfaces();
+  const addresses: string[] = [];
 
-  if (app.get("env") === "development") {
-    await setupVite(app, activeServer!);
-  } else {
-    serveStatic(app);
-  }
-
-  // Graceful shutdown handler
-  async function gracefulShutdown(signal: string) {
-    log(`Received ${signal} signal`);
-    try {
-      await closeServer();
-      log('Server closed gracefully');
-      process.exit(0);
-    } catch (error) {
-      log(`Error during shutdown: ${error}`);
-      process.exit(1);
+  for (const [, nets] of Object.entries(interfaces)) {
+    if (!nets) continue;
+    for (const net of nets) {
+      if (net.family === 'IPv4' && !net.internal) {
+        addresses.push(net.address);
+      }
     }
   }
+  return addresses;
+}
 
-  // Register shutdown handlers
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
+// Start the server
+(async () => {
   try {
     await startServer(5000);
   } catch (error) {

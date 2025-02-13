@@ -7,6 +7,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 import { MemoryStore } from 'express-session';
+import express from 'express';
 
 declare global {
   namespace Express {
@@ -93,11 +94,15 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Login route with proper error handling and JSON responses
-  app.post("/api/login", (req, res, next) => {
-    // Ensure we're expecting JSON
+  // API middleware for auth routes
+  const authRouter = express.Router();
+  authRouter.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/json');
+    next();
+  });
 
+  // Login route with proper error handling and JSON responses
+  authRouter.post("/login", (req, res, next) => {
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: any) => {
       if (err) {
         console.error("Authentication error:", err);
@@ -130,8 +135,7 @@ export function setupAuth(app: Express) {
   });
 
   // User route
-  app.get("/api/user", (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
+  authRouter.get("/user", (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({
         message: "Not authenticated",
@@ -142,8 +146,7 @@ export function setupAuth(app: Express) {
   });
 
   // Logout route
-  app.post("/api/logout", (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
+  authRouter.post("/logout", (req, res) => {
     if (req.user) {
       req.logout((err) => {
         if (err) {
@@ -159,8 +162,10 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Mount auth routes under /api
+  app.use('/api', authRouter);
+
   const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-    res.setHeader('Content-Type', 'application/json');
     console.log("Auth check:", {
       isAuthenticated: req.isAuthenticated(),
       session: req.session?.id,
