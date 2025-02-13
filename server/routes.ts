@@ -1520,6 +1520,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Error handling middleware
+  app.use((err: Error, req: any, res: any, next: any) => {
+    console.error('Global error handler:', err);
+    res.status(500).json({
+      message: "An error occurred",
+      error: err instanceof Error ? err.message : String(err)
+    });
+  });
+
+  // 404 handler - must be last
+  app.use((req, res) => {
+    res.status(404).json({
+      message: "Route not found",
+      error: `${req.method} ${req.url} does not exist`
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
