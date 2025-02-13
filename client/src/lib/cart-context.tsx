@@ -101,6 +101,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const response = await apiRequest('GET', '/api/cart/shared');
         const data = await response.json();
         return data.map((cart: any) => ({
+          id: cart.id, // Ensure we're mapping the cart ID
           owner: {
             id: cart.owner.id,
             username: cart.owner.username || '',
@@ -360,20 +361,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSharedCartMutation = useMutation({
     mutationFn: async (shareId: number) => {
-      if (!shareId || typeof shareId !== 'number') {
-        throw new Error('Invalid share ID provided');
+      if (!shareId) {
+        throw new Error('No share ID provided');
       }
-      const response = await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
-      if (!response.ok) {
-        throw new Error('Failed to delete shared cart');
+
+      try {
+        const response = await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to delete shared cart');
+        }
+        return response;
+      } catch (error) {
+        console.error('Error in deleteSharedCartMutation:', error);
+        throw error;
       }
-      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
       toast({
-        title: "Shared Cart Deleted",
-        description: "The shared cart has been removed",
+        title: "Success",
+        description: "Shared cart has been removed",
       });
     },
     onError: (error) => {
@@ -387,10 +395,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
 
   const deleteSharedCart = (shareId: number) => {
-    if (!shareId || typeof shareId !== 'number') {
+    console.log('Attempting to delete shared cart with ID:', shareId);
+    if (!shareId) {
       toast({
         title: "Error",
-        description: "Invalid share ID provided",
+        description: "No share ID provided",
         variant: "destructive",
       });
       return;

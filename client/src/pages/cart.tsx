@@ -442,7 +442,10 @@ export default function CartPage() {
               <h1 className="text-2xl font-bold">{cart.owner.username}'s Cart</h1>
               <Button
                 variant="destructive"
-                onClick={() => deleteSharedCart(cart.id)}
+                onClick={() => {
+                  console.log('Deleting cart with ID:', cart.id); // Add logging
+                  deleteSharedCart(cart.id);
+                }}
                 className="flex items-center gap-2"
               >
                 <Trash2 className="h-4 w-4" />
