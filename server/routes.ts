@@ -963,6 +963,39 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add this new endpoint after the existing cart share routes (around line 964)
+
+  app.delete("/api/cart/shared/:shareId", requireAuth, async (req, res) => {
+    try {
+      const shareId = Number(req.params.shareId);
+
+      if (isNaN(shareId)) {
+        return res.status(400).json({
+          message: "Invalid share ID",
+          error: "INVALID_INPUT"
+        });
+      }
+
+      // Delete the share for the current user
+      const deleted = await storage.deleteCartShare(shareId, req.user!.id);
+
+      if (!deleted) {
+        return res.status(404).json({
+          message: "Shared cart not found or you don't have permission to delete it",
+          error: "SHARE_NOT_FOUND"
+        });
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error deleting shared cart:", error);
+      res.status(500).json({
+        message: "Failed to delete shared cart",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Product routes
   app.get("/api/products", async (req, res) => {
     try {

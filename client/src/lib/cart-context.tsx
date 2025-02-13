@@ -21,6 +21,7 @@ export interface CartItem {
 }
 
 interface SharedCart {
+  id: number;  // Add the id field
   owner: {
     id: number;
     username: string;
@@ -48,6 +49,7 @@ interface CartContextType {
   addToCart: (product: Product) => void;
   shareCart: (username: string) => void;
   respondToShare: (shareId: number, action: 'accept' | 'reject') => void;
+  deleteSharedCart: (shareId: number) => void;
   isLoading: boolean;
   error: Error | null;
 }
@@ -359,6 +361,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const totalItems = items.reduce((sum: number, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce((sum: number, item) => sum + (item.price * item.quantity), 0);
 
+  const deleteSharedCartMutation = useMutation({
+    mutationFn: async (shareId: number) => {
+      await apiRequest('DELETE', `/api/cart/shared/${shareId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shared-carts', user?.id] });
+      toast({
+        title: "Shared Cart Deleted",
+        description: "The shared cart has been removed",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete shared cart",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteSharedCart = (shareId: number) => {
+    deleteSharedCartMutation.mutate(shareId);
+  };
+
   const value = {
     items,
     sharedCarts,
@@ -372,6 +398,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     addToCart,
     shareCart,
     respondToShare,
+    deleteSharedCart,
     isLoading: itemsLoading,
     error,
   };

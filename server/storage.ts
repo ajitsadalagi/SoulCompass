@@ -42,9 +42,10 @@ export interface IStorage {
   clearCart(userId: number): Promise<void>;
   // Cart sharing methods
   shareCart(ownerUserId: number, shareData: { username: string }): Promise<CartShare>;
-  getSharedCarts(userId: number): Promise<{ owner: User, items: (CartItem & { product: Product })[] }[]>;
+  getSharedCarts(userId: number): Promise<{ id: number; owner: User, items: (CartItem & { product: Product })[] }[]>;
   getPendingCartShares(userId: number): Promise<(CartShare & { owner: User })[]>;
   updateCartShareStatus(shareId: number, userId: number, status: "accepted" | "rejected"): Promise<CartShare>;
+  deleteCartShare(shareId: number, userId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -526,7 +527,7 @@ export class DatabaseStorage implements IStorage {
     return share;
   }
 
-  async getSharedCarts(userId: number): Promise<{ owner: User, items: (CartItem & { product: Product })[] }[]> {
+  async getSharedCarts(userId: number): Promise<{ id: number; owner: User, items: (CartItem & { product: Product })[] }[]> {
     // Get all accepted shares where this user is the recipient
     const shares = await db.select()
       .from(cartShares)
@@ -543,6 +544,7 @@ export class DatabaseStorage implements IStorage {
         const owner = await this.getUser(share.ownerUserId);
         const items = await this.getCartItems(share.ownerUserId);
         return {
+          id: share.id,  // Include the share's id
           owner: owner!,
           items
         };
@@ -602,6 +604,39 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return share;
+  }
+
+  async deleteCartShare(shareId: number, userId: number): Promise<boolean> {
+    try {
+      // First verify the share exists and belongs to this user
+      const [share] = await db.select()
+        .from(cartShares)
+        .where(
+          and(
+            eq(cartShares.id, shareId),
+            eq(cartShares.sharedWithUserId, userId),
+            eq(cartShares.status, "accepted")
+          )
+        );
+
+      if (!share) {
+        return false;
+      }
+
+      // Delete the share
+      await db.delete(cartShares)
+        .where(
+          and(
+            eq(cartShares.id, shareId),
+            eq(cartShares.sharedWithUserId, userId)
+          )
+        );
+
+      return true;
+    } catch (error) {
+      console.error("Error deleting cart share:", error);
+      return false;
+    }
   }
 }
 

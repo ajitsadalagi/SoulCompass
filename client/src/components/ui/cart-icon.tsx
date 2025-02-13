@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 
 export function CartIcon() {
-  const { items, totalItems, totalPrice, pendingShares, respondToShare } = useCart();
+  const { items, totalItems, totalPrice, pendingShares, sharedCarts, respondToShare, deleteSharedCart } = useCart();
   const { user } = useAuth();
 
   // If user is not logged in, show a simple cart icon that links to auth page
@@ -71,6 +71,28 @@ export function CartIcon() {
                         Reject
                       </Button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shared Carts */}
+          {sharedCarts?.length > 0 && (
+            <div className="border-b pb-2">
+              <h4 className="text-sm font-semibold mb-2">Shared Carts</h4>
+              <div className="space-y-2">
+                {sharedCarts.map((sharedCart) => (
+                  <div key={sharedCart.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span>{sharedCart.owner.username}'s cart</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => deleteSharedCart(sharedCart.id)}
+                    >
+                      Remove
+                    </Button>
                   </div>
                 ))}
               </div>
